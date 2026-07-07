@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>旅遊代購與購物清單</title>
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --card-bg: #ffffff;
+    --text: #1f2430;
+    --text-dim: #6b7280;
+    --border: #e5e7eb;
+    --primary: #2563eb;
+    --primary-dim: #eff6ff;
+    --danger: #dc2626;
+    --danger-dim: #fef2f2;
+    --success: #16a34a;
+    --success-dim: #f0fdf4;
+    --warn: #d97706;
+    --warn-dim: #fffbeb;
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161c;
+      --card-bg: #1d2029;
+      --text: #e5e7eb;
+      --text-dim: #9ca3af;
+      --border: #2d313d;
+      --primary: #60a5fa;
+      --primary-dim: #1e2a3f;
+      --danger: #f87171;
+      --danger-dim: #3a1f1f;
+      --success: #4ade80;
+      --success-dim: #16261c;
+      --warn: #fbbf24;
+      --warn-dim: #3a2f14;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14161c;
+    --card-bg: #1d2029;
+    --text: #e5e7eb;
+    --text-dim: #9ca3af;
+    --border: #2d313d;
+    --primary: #60a5fa;
+    --primary-dim: #1e2a3f;
+    --danger: #f87171;
+    --danger-dim: #3a1f1f;
+    --success: #4ade80;
+    --success-dim: #16261c;
+    --warn: #fbbf24;
+    --warn-dim: #3a2f14;
+  }
+  :root[data-theme="light"] {
+    --bg: #f4f5f7;
+    --card-bg: #ffffff;
+    --text: #1f2430;
+    --text-dim: #6b7280;
+    --border: #e5e7eb;
+    --primary: #2563eb;
+    --primary-dim: #eff6ff;
+    --danger: #dc2626;
+    --danger-dim: #fef2f2;
+    --success: #16a34a;
+    --success-dim: #f0fdf4;
+    --warn: #d97706;
+    --warn-dim: #fffbeb;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+  .wrap {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 20px 16px 80px;
+  }
+  h1 {
+    font-size: 22px;
+    margin: 4px 0 18px;
+  }
+  h2 { font-size: 17px; margin: 0 0 12px; }
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .row > * { min-width: 0; }
+  label {
+    font-size: 12px;
+    color: var(--text-dim);
+    display: block;
+    margin-bottom: 4px;
+  }
+  input, select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+  }
+  input[type="checkbox"] { width: auto; }
+  button {
+    cursor: pointer;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    background: var(--primary);
+    color: #fff;
+    white-space: nowrap;
+  }
+  button.secondary {
+    background: var(--primary-dim);
+    color: var(--primary);
+  }
+  button.danger {
+    background: var(--danger-dim);
+    color: var(--danger);
+  }
+  button.ghost {
+    background: transparent;
+    color: var(--text-dim);
+    padding: 4px 8px;
+  }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tab-btn {
+    background: transparent;
+    color: var(--text-dim);
+    border-radius: 8px 8px 0 0;
+    padding: 10px 16px;
+    font-weight: 600;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .tab-btn.active {
+    color: var(--primary);
+    background: var(--primary-dim);
+  }
+  .field { flex: 1; }
+  .trip-select-row { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+  .trip-select-row .field { flex: 2; min-width: 160px; }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge.success { background: var(--success-dim); color: var(--success); }
+  .badge.warn { background: var(--warn-dim); color: var(--warn); }
+  .badge.danger { background: var(--danger-dim); color: var(--danger); }
+  #daigouTableWrap, #selfTableWrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  table { width: 100%; min-width: 620px; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  th { color: var(--text-dim); font-weight: 600; font-size: 12px; }
+  td.num { text-align: right; white-space: nowrap; }
+  th.num { text-align: right; }
+  .muted { color: var(--text-dim); font-size: 12px; }
+  .empty {
+    text-align: center;
+    color: var(--text-dim);
+    padding: 24px 12px;
+    font-size: 14px;
+  }
+  .trip-meta {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+  .trip-meta .item { font-size: 13px; }
+  .trip-meta .item b { display: block; font-size: 16px; color: var(--text); }
+  .add-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 14px; }
+  .add-form .field { min-width: 110px; }
+  .add-form .field.grow { flex: 2; min-width: 160px; }
+  .link-cell a { color: var(--primary); font-size: 12px; }
+  .rate-box { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+  .rate-box .field { max-width: 140px; }
+  .reminder-group { margin-bottom: 20px; }
+  .reminder-group h3 { font-size: 15px; margin: 0 0 8px; display: flex; align-items: center; gap: 8px; }
+  .reminder-section {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    background: var(--bg);
+  }
+  .reminder-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 4px;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+  .reminder-item:last-child { border-bottom: none; }
+  .reminder-item .name { display: flex; align-items: center; gap: 8px; }
+  .tag {
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: 6px;
+    background: var(--primary-dim);
+    color: var(--primary);
+  }
+  .top-actions { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .status-line { font-size: 12px; color: var(--text-dim); margin-top: 6px; }
+  .checkbox-cell { text-align: center; }
+  .chip { font-size: 12px; padding: 4px 10px; background: var(--primary-dim); color: var(--primary); border-radius: 999px; }
+  .chip:disabled { background: var(--bg); color: var(--text-dim); opacity: 0.6; }
+  .packing-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 4px;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+  .packing-item:last-child { border-bottom: none; }
+  .packing-item .name { flex: 1; }
+  .packing-item .name.packed { text-decoration: line-through; color: var(--text-dim); }
+  .del-btn { color: var(--danger); }
+  ::placeholder { color: var(--text-dim); opacity: 0.6; }
+  input[type="checkbox"] { width: 18px; height: 18px; flex-shrink: 0; }
+  button { min-height: 40px; }
+  button.ghost { min-height: auto; }
+  @media (max-width: 640px) {
+    .wrap { padding: 12px 10px 60px; }
+    h1 { font-size: 19px; }
+    .card { padding: 12px; }
+    .add-form .field { flex: 1 1 100%; }
+    .trip-select-row .field { flex: 1 1 100%; }
+    .rate-box .field { max-width: none; flex: 1 1 100%; }
+    input, select, button { font-size: 16px; }
+    .tab-btn { padding: 10px 12px; font-size: 13px; }
+    .card .row > .field[style*="max-width"] { max-width: none !important; flex: 1 1 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🧳 旅遊代購與購物清單</h1>
+
+  <div class="card">
+    <h2>行程</h2>
+    <div class="trip-select-row">
+      <div class="field">
+        <label>選擇行程</label>
+        <select id="tripSelect"></select>
+      </div>
+      <button class="secondary" id="btnNewTrip">＋ 新增行程</button>
+      <button class="secondary" id="btnEditTrip">編輯</button>
+      <button class="danger" id="btnDeleteTrip">刪除</button>
+    </div>
+    <div id="tripMeta" class="trip-meta"></div>
+    <div id="tripEmpty" class="empty" style="display:none;">目前沒有行程，請先新增一個行程。</div>
+  </div>
+
+  <div id="tripForm" class="card" style="display:none;">
+    <h2 id="tripFormTitle">新增行程</h2>
+    <div class="row">
+      <div class="field">
+        <label>行程名稱</label>
+        <input id="f_name" placeholder="例如：2026東京賞楓">
+      </div>
+      <div class="field">
+        <label>目的地國家</label>
+        <input id="f_country" placeholder="例如：日本">
+      </div>
+      <div class="field">
+        <label>幣別</label>
+        <select id="f_currency">
+          <option value="JPY">日圓 JPY</option>
+          <option value="KRW">韓元 KRW</option>
+          <option value="USD">美元 USD</option>
+          <option value="EUR">歐元 EUR</option>
+          <option value="THB">泰銖 THB</option>
+          <option value="CNY">人民幣 CNY</option>
+          <option value="HKD">港幣 HKD</option>
+          <option value="GBP">英鎊 GBP</option>
+          <option value="AUD">澳幣 AUD</option>
+          <option value="VND">越南盾 VND</option>
+          <option value="SGD">新加坡幣 SGD</option>
+          <option value="MYR">馬來幣 MYR</option>
+          <option value="PHP">菲律賓披索 PHP</option>
+          <option value="IDR">印尼盾 IDR</option>
+          <option value="NZD">紐幣 NZD</option>
+          <option value="CAD">加幣 CAD</option>
+          <option value="OTHER">其他（自訂代碼）</option>
+        </select>
+      </div>
+      <div class="field" id="f_currency_other_wrap" style="display:none;">
+        <label>自訂幣別代碼</label>
+        <input id="f_currency_other" placeholder="3碼英文，例如 CHF" maxlength="3" style="text-transform:uppercase;">
+      </div>
+      <div class="field">
+        <label>出發日期</label>
+        <input id="f_date" type="date" style="cursor:pointer;">
+      </div>
+    </div>
+    <div class="row" style="margin-top:10px;">
+      <button id="btnSaveTrip">儲存</button>
+      <button class="ghost" id="btnCancelTrip">取消</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="packing">🎒 攜帶清單</button>
+    <button class="tab-btn" data-tab="daigou">🛍️ 代購清單</button>
+    <button class="tab-btn" data-tab="self">🛒 自己購買清單</button>
+    <button class="tab-btn" data-tab="reminder">🔔 購買提醒</button>
+  </div>
+
+  <!-- 攜帶清單 -->
+  <div id="tab-packing" class="tab-panel">
+    <div class="card">
+      <h2>新增攜帶物品（本行程）</h2>
+      <div class="add-form">
+        <div class="field grow">
+          <label>物品名稱</label>
+          <input id="p_item" placeholder="例如：護照">
+        </div>
+        <button id="btnAddPacking">新增</button>
+      </div>
+      <div class="row" id="packingQuickAdd" style="margin-top:4px; gap:6px;"></div>
+    </div>
+    <div class="card">
+      <h2>攜帶清單</h2>
+      <div id="packingListWrap"></div>
+    </div>
+  </div>
+
+  <!-- 代購清單 -->
+  <div id="tab-daigou" class="tab-panel" style="display:none;">
+    <div class="card">
+      <h2>新增代購項目</h2>
+      <div class="add-form">
+        <div class="field grow">
+          <label>委託人/客戶</label>
+          <input id="d_client" placeholder="姓名">
+        </div>
+        <div class="field grow">
+          <label>商品名稱</label>
+          <input id="d_item" placeholder="商品名稱">
+        </div>
+        <div class="field">
+          <label>單價（原幣）</label>
+          <input id="d_price" type="number" min="0" step="0.01" placeholder="0">
+        </div>
+        <div class="field">
+          <label>數量</label>
+          <input id="d_qty" type="number" min="1" step="1" value="1">
+        </div>
+        <div class="field">
+          <label>代購費(台幣)</label>
+          <input id="d_fee" type="number" min="0" step="1" placeholder="0">
+        </div>
+        <div class="field grow">
+          <label>商品連結(選填)</label>
+          <input id="d_link" placeholder="https://">
+        </div>
+        <button id="btnAddDaigou">新增</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between;">
+        <h2 style="margin:0;">代購明細</h2>
+        <div class="field" style="max-width:240px;">
+          <label>依委託人查詢（跨所有行程）</label>
+          <select id="d_clientFilter">
+            <option value="">本行程全部項目</option>
+          </select>
+        </div>
+      </div>
+      <div id="daigouTableWrap"></div>
+      <div id="daigouSummary" class="status-line"></div>
+    </div>
+  </div>
+
+  <!-- 自己購買清單 -->
+  <div id="tab-self" class="tab-panel" style="display:none;">
+    <div class="card">
+      <h2>新增自購項目</h2>
+      <div class="add-form">
+        <div class="field grow">
+          <label>商品名稱</label>
+          <input id="s_item" placeholder="商品名稱">
+        </div>
+        <div class="field">
+          <label>單價（原幣）</label>
+          <input id="s_price" type="number" min="0" step="0.01" placeholder="0">
+        </div>
+        <div class="field">
+          <label>數量</label>
+          <input id="s_qty" type="number" min="1" step="1" value="1">
+        </div>
+        <button id="btnAddSelf">新增</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>自購明細</h2>
+      <div id="selfTableWrap"></div>
+      <div id="selfSummary" class="status-line"></div>
+    </div>
+  </div>
+
+  <!-- 購買提醒 -->
+  <div id="tab-reminder" class="tab-panel" style="display:none;">
+    <div class="card">
+      <div class="row" style="justify-content:space-between;">
+        <h2 style="margin:0;">尚未購買提醒（含代購與自購，跨所有行程）</h2>
+        <div class="field" style="max-width:240px;">
+          <label>依委託人查詢（跨所有行程）</label>
+          <select id="rm_clientFilter">
+            <option value="">全部（含自購）</option>
+          </select>
+        </div>
+      </div>
+      <div id="reminderContent"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var STORAGE_KEY = "travel_shopping_data_v1";
+  var RATE_CACHE_KEY_PREFIX = "travel_rate_cache_";
+
+  /** @type {{trips: any[], daigouItems: any[], selfItems: any[]}} */
+  var data = loadData();
+  var state = {
+    currentTripId: data.trips.length ? data.trips[0].id : null,
+    activeTab: "packing",
+    editingTripId: null
+  };
+
+  function loadData() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        parsed.trips = parsed.trips || [];
+        parsed.daigouItems = parsed.daigouItems || [];
+        parsed.selfItems = parsed.selfItems || [];
+        parsed.packingItems = parsed.packingItems || [];
+        return parsed;
+      }
+    } catch (e) {
+      console.warn("讀取本機資料失敗，將重新初始化", e);
+    }
+    return { trips: [], daigouItems: [], selfItems: [], packingItems: [] };
+  }
+
+  function saveData() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  }
+
+  function uid() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+
+  function escapeHtml(str) {
+    return String(str == null ? "" : str).replace(/[&<>"']/g, function (c) {
+      return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c];
+    });
+  }
+
+  function fmtMoney(n) {
+    if (isNaN(n)) return "0";
+    return Math.round(n).toLocaleString("zh-TW");
+  }
+
+  function getTrip(id) {
+    return data.trips.find(function (t) { return t.id === id; });
+  }
+
+  // ---------- 匯率 ----------
+  function rateCacheKey(currency) {
+    return RATE_CACHE_KEY_PREFIX + currency.toUpperCase();
+  }
+
+  function getCachedRate(currency) {
+    try {
+      var raw = localStorage.getItem(rateCacheKey(currency));
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return null;
+  }
+
+  function setCachedRate(currency, rate) {
+    localStorage.setItem(rateCacheKey(currency), JSON.stringify({
+      rate: rate, updatedAt: new Date().toISOString()
+    }));
+  }
+
+  function fetchWithTimeout(url, ms) {
+    var controller = new AbortController();
+    var timer = setTimeout(function () { controller.abort(); }, ms || 8000);
+    return fetch(url, { signal: controller.signal }).finally(function () {
+      clearTimeout(timer);
+    });
+  }
+
+  function fetchExchangeRate(currency) {
+    currency = (currency || "").toUpperCase();
+    if (!currency) return Promise.reject(new Error("幣別未設定"));
+    if (currency === "TWD") return Promise.resolve(1);
+    if (navigator.onLine === false) return Promise.reject(new Error("目前離線"));
+    return fetchWithTimeout("https://open.er-api.com/v6/latest/" + encodeURIComponent(currency))
+      .then(function (res) {
+        if (!res.ok) throw new Error("API 回應失敗");
+        return res.json();
+      })
+      .then(function (json) {
+        if (json.result !== "success" || !json.rates || typeof json.rates.TWD !== "number") {
+          throw new Error("匯率資料格式異常");
+        }
+        setCachedRate(currency, json.rates.TWD);
+        return json.rates.TWD;
+      });
+  }
+
+  function refreshTripRate(trip, opts) {
+    opts = opts || {};
+    return fetchExchangeRate(trip.currency).then(function (rate) {
+      trip.exchangeRate = rate;
+      trip.rateUpdatedAt = new Date().toISOString();
+      trip.rateSource = "auto";
+      saveData();
+      renderAll();
+      return rate;
+    }).catch(function (err) {
+      var cached = getCachedRate(trip.currency);
+      if (cached) {
+        trip.exchangeRate = cached.rate;
+        trip.rateUpdatedAt = cached.updatedAt;
+        trip.rateSource = "cache";
+        saveData();
+        renderAll();
+      } else if (!opts.silent) {
+        alert("自動取得匯率失敗（可能離線或該幣別代碼不支援），請手動輸入匯率。\n" + err.message);
+      }
+      throw err;
+    });
+  }
+
+  // ---------- 行程 ----------
+  function renderTripSelect() {
+    var sel = document.getElementById("tripSelect");
+    sel.innerHTML = "";
+    data.trips.forEach(function (t) {
+      var opt = document.createElement("option");
+      opt.value = t.id;
+      opt.textContent = t.name + "（" + t.country + " · " + t.currency + "）";
+      if (t.id === state.currentTripId) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    var hasTrips = data.trips.length > 0;
+    document.getElementById("tripEmpty").style.display = hasTrips ? "none" : "block";
+    document.getElementById("btnEditTrip").disabled = !hasTrips;
+    document.getElementById("btnDeleteTrip").disabled = !hasTrips;
+  }
+
+  function daysUntil(dateStr) {
+    if (!dateStr) return null;
+    var target = new Date(dateStr + "T00:00:00");
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+    var diff = Math.round((target - today) / 86400000);
+    return diff;
+  }
+
+  function renderTripMeta() {
+    var box = document.getElementById("tripMeta");
+    var trip = getTrip(state.currentTripId);
+    if (!trip) { box.innerHTML = ""; return; }
+
+    var rateText = trip.exchangeRate ? ("1 " + trip.currency + " ≈ " + trip.exchangeRate.toFixed(4) + " TWD") : "尚未取得匯率";
+    var rateUpdated = trip.rateUpdatedAt ? new Date(trip.rateUpdatedAt).toLocaleString("zh-TW") : "—";
+    var d = daysUntil(trip.departureDate);
+    var dText = trip.departureDate ? (d > 0 ? ("還有 " + d + " 天") : (d === 0 ? "今天出發！" : "已出發")) : "未設定";
+
+    box.innerHTML =
+      '<div class="item"><label>目的地</label><b>' + escapeHtml(trip.country) + '</b></div>' +
+      '<div class="item"><label>出發日期</label><b>' + (trip.departureDate ? escapeHtml(trip.departureDate) : "—") + '</b><span class="muted">' + dText + '</span></div>' +
+      '<div class="item"><label>匯率</label><b>' + rateText + '</b><span class="muted">更新於 ' + rateUpdated + (trip.rateSource === "cache" ? "（快取）" : "") + '</span></div>' +
+      '<div class="item rate-box">' +
+        '<div class="field"><label>手動匯率</label><input type="number" step="0.0001" min="0" id="manualRateInput" value="' + (trip.exchangeRate || "") + '"></div>' +
+        '<button class="secondary" id="btnManualRate">套用</button>' +
+        '<button class="secondary" id="btnRefreshRate">🔄 重新抓取</button>' +
+      '</div>';
+
+    document.getElementById("btnManualRate").onclick = function () {
+      var v = parseFloat(document.getElementById("manualRateInput").value);
+      if (isNaN(v) || v <= 0) { alert("請輸入有效的匯率數字"); return; }
+      trip.exchangeRate = v;
+      trip.rateUpdatedAt = new Date().toISOString();
+      trip.rateSource = "manual";
+      saveData();
+      renderAll();
+    };
+    document.getElementById("btnRefreshRate").onclick = function () {
+      refreshTripRate(trip).catch(function () {});
+    };
+  }
+
+  function updateCurrencyOtherVisibility() {
+    var sel = document.getElementById("f_currency");
+    var wrap = document.getElementById("f_currency_other_wrap");
+    wrap.style.display = sel.value === "OTHER" ? "block" : "none";
+  }
+
+  function setCurrencySelectValue(currency) {
+    var sel = document.getElementById("f_currency");
+    var hasOption = Array.prototype.some.call(sel.options, function (o) { return o.value === currency; });
+    if (hasOption) {
+      sel.value = currency;
+      document.getElementById("f_currency_other").value = "";
+    } else {
+      sel.value = "OTHER";
+      document.getElementById("f_currency_other").value = currency;
+    }
+    updateCurrencyOtherVisibility();
+  }
+
+  function showTripForm(editing) {
+    state.editingTripId = editing ? state.currentTripId : null;
+    var form = document.getElementById("tripForm");
+    var title = document.getElementById("tripFormTitle");
+    if (editing) {
+      var trip = getTrip(state.currentTripId);
+      title.textContent = "編輯行程";
+      document.getElementById("f_name").value = trip.name;
+      document.getElementById("f_country").value = trip.country;
+      setCurrencySelectValue(trip.currency);
+      document.getElementById("f_date").value = trip.departureDate || "";
+    } else {
+      title.textContent = "新增行程";
+      document.getElementById("f_name").value = "";
+      document.getElementById("f_country").value = "";
+      setCurrencySelectValue("JPY");
+      document.getElementById("f_date").value = "";
+    }
+    form.style.display = "block";
+  }
+
+  function hideTripForm() {
+    document.getElementById("tripForm").style.display = "none";
+    state.editingTripId = null;
+  }
+
+  function saveTripForm() {
+    var name = document.getElementById("f_name").value.trim();
+    var country = document.getElementById("f_country").value.trim();
+    var currencySel = document.getElementById("f_currency").value;
+    var currency = currencySel === "OTHER"
+      ? document.getElementById("f_currency_other").value.trim().toUpperCase()
+      : currencySel;
+    var date = document.getElementById("f_date").value;
+
+    if (!name || !country || !currency) {
+      alert("請填寫行程名稱、目的地國家、幣別代碼");
+      return;
+    }
+    if (!/^[A-Z]{3}$/.test(currency)) {
+      alert("幣別代碼請輸入3個英文字母，例如 JPY、KRW、USD、EUR");
+      return;
+    }
+
+    if (state.editingTripId) {
+      var trip = getTrip(state.editingTripId);
+      var currencyChanged = trip.currency !== currency;
+      trip.name = name;
+      trip.country = country;
+      trip.currency = currency;
+      trip.departureDate = date;
+      saveData();
+      hideTripForm();
+      renderAll();
+      if (currencyChanged) refreshTripRate(trip, { silent: true }).catch(function () {});
+    } else {
+      var newTrip = {
+        id: uid(),
+        name: name,
+        country: country,
+        currency: currency,
+        departureDate: date,
+        exchangeRate: null,
+        rateUpdatedAt: null,
+        rateSource: null,
+        createdAt: new Date().toISOString()
+      };
+      data.trips.push(newTrip);
+      state.currentTripId = newTrip.id;
+      saveData();
+      hideTripForm();
+      renderAll();
+      var cached = getCachedRate(currency);
+      if (cached) {
+        newTrip.exchangeRate = cached.rate;
+        newTrip.rateUpdatedAt = cached.updatedAt;
+        newTrip.rateSource = "cache";
+        saveData();
+        renderAll();
+      }
+      refreshTripRate(newTrip, { silent: true }).catch(function () {});
+    }
+  }
+
+  function deleteCurrentTrip() {
+    var trip = getTrip(state.currentTripId);
+    if (!trip) return;
+    if (!confirm('確定要刪除行程「' + trip.name + '」嗎？此行程底下的代購、自購與攜帶清單項目也會一併刪除，此動作無法復原。')) return;
+    data.trips = data.trips.filter(function (t) { return t.id !== trip.id; });
+    data.daigouItems = data.daigouItems.filter(function (it) { return it.tripId !== trip.id; });
+    data.selfItems = data.selfItems.filter(function (it) { return it.tripId !== trip.id; });
+    data.packingItems = data.packingItems.filter(function (it) { return it.tripId !== trip.id; });
+    state.currentTripId = data.trips.length ? data.trips[0].id : null;
+    saveData();
+    renderAll();
+  }
+
+  // ---------- 代購清單 ----------
+  function addDaigouItem() {
+    var trip = getTrip(state.currentTripId);
+    if (!trip) { alert("請先建立行程"); return; }
+    var client = document.getElementById("d_client").value.trim();
+    var item = document.getElementById("d_item").value.trim();
+    var price = parseFloat(document.getElementById("d_price").value);
+    var qty = parseInt(document.getElementById("d_qty").value, 10) || 1;
+    var fee = parseFloat(document.getElementById("d_fee").value) || 0;
+    var link = document.getElementById("d_link").value.trim();
+
+    if (!item || isNaN(price) || price < 0) {
+      alert("請填寫商品名稱與有效的單價");
+      return;
+    }
+
+    data.daigouItems.push({
+      id: uid(),
+      tripId: trip.id,
+      client: client,
+      item: item,
+      price: price,
+      qty: qty,
+      fee: fee,
+      link: link,
+      purchased: false,
+      delivered: false,
+      paid: false,
+      createdAt: new Date().toISOString()
+    });
+    saveData();
+
+    document.getElementById("d_client").value = "";
+    document.getElementById("d_item").value = "";
+    document.getElementById("d_price").value = "";
+    document.getElementById("d_qty").value = "1";
+    document.getElementById("d_fee").value = "";
+    document.getElementById("d_link").value = "";
+
+    renderAll();
+  }
+
+  function getDistinctClients() {
+    return Array.from(new Set(
+      data.daigouItems.map(function (it) { return it.client; }).filter(function (c) { return c; })
+    )).sort(function (a, b) { return a.localeCompare(b, "zh-Hant"); });
+  }
+
+  function renderClientFilterOptions() {
+    var clients = getDistinctClients();
+
+    var sel = document.getElementById("d_clientFilter");
+    var prevValue = sel.value;
+    sel.innerHTML = '<option value="">本行程全部項目</option>' +
+      clients.map(function (c) { return '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '（跨行程）</option>'; }).join("");
+    if (clients.indexOf(prevValue) !== -1) sel.value = prevValue;
+
+    var rmSel = document.getElementById("rm_clientFilter");
+    var rmPrevValue = rmSel.value;
+    rmSel.innerHTML = '<option value="">全部（含自購）</option>' +
+      clients.map(function (c) { return '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>'; }).join("");
+    if (clients.indexOf(rmPrevValue) !== -1) rmSel.value = rmPrevValue;
+  }
+
+  function buildDaigouRow(it, trip, showTripColumn) {
+    var rate = trip ? (trip.exchangeRate || 0) : 0;
+    var currency = trip ? trip.currency : "?";
+    var subtotalForeign = it.price * it.qty;
+    var subtotalTwd = subtotalForeign * rate;
+    var receivable = subtotalTwd + it.fee;
+
+    return {
+      receivable: receivable,
+      html: '<tr>' +
+        '<td>' + escapeHtml(it.client || "—") + '</td>' +
+        (showTripColumn ? '<td>' + escapeHtml(trip ? trip.name : "—") + '</td>' : "") +
+        '<td>' + escapeHtml(it.item) +
+          (it.link ? ' <span class="link-cell"><a href="' + escapeHtml(it.link) + '" target="_blank" rel="noopener">連結</a></span>' : "") +
+        '</td>' +
+        '<td class="num">' + it.price.toLocaleString("zh-TW") + ' ' + currency +
+          '<br><span class="muted">≈NT$ ' + fmtMoney(it.price * rate) + '</span></td>' +
+        '<td class="num">' + it.qty + '</td>' +
+        '<td class="num">NT$ ' + fmtMoney(subtotalTwd) + '</td>' +
+        '<td class="num">NT$ ' + fmtMoney(it.fee) + '</td>' +
+        '<td class="num"><b>NT$ ' + fmtMoney(receivable) + '</b></td>' +
+        '<td><button class="ghost del-btn" data-action="delete-daigou" data-id="' + it.id + '">刪除</button></td>' +
+      '</tr>'
+    };
+  }
+
+  function renderDaigouTable() {
+    var wrap = document.getElementById("daigouTableWrap");
+    var summary = document.getElementById("daigouSummary");
+    var clientFilter = document.getElementById("d_clientFilter").value;
+
+    var items, showTripColumn, summaryLabel;
+
+    if (clientFilter) {
+      items = data.daigouItems.filter(function (it) { return it.client === clientFilter; });
+      showTripColumn = true;
+      summaryLabel = '「' + clientFilter + '」跨所有行程應收總額：';
+    } else {
+      var trip = getTrip(state.currentTripId);
+      if (!trip) { wrap.innerHTML = '<div class="empty">請先建立行程</div>'; summary.textContent = ""; return; }
+      items = data.daigouItems.filter(function (it) { return it.tripId === trip.id; });
+      showTripColumn = false;
+      summaryLabel = "本行程代購應收總額：";
+    }
+
+    if (!items.length) {
+      wrap.innerHTML = '<div class="empty">' + (clientFilter ? "找不到這位委託人的項目" : "尚未新增代購項目") + '</div>';
+      summary.textContent = "";
+      return;
+    }
+
+    var totalReceivable = 0;
+    var rows = items.map(function (it) {
+      var itTrip = getTrip(it.tripId);
+      var built = buildDaigouRow(it, itTrip, showTripColumn);
+      totalReceivable += built.receivable;
+      return built.html;
+    }).join("");
+
+    wrap.innerHTML =
+      '<table><thead><tr>' +
+      '<th>委託人</th>' + (showTripColumn ? "<th>行程</th>" : "") + '<th>商品</th><th class="num">單價</th><th class="num">數量</th>' +
+      '<th class="num">台幣小計</th><th class="num">代購費</th><th class="num">應收總額</th><th></th>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table>';
+
+    summary.innerHTML = summaryLabel + '<b style="color:var(--text)">NT$ ' + fmtMoney(totalReceivable) + '</b>';
+  }
+
+  // ---------- 自己買清單 ----------
+  function addSelfItem() {
+    var trip = getTrip(state.currentTripId);
+    if (!trip) { alert("請先建立行程"); return; }
+    var item = document.getElementById("s_item").value.trim();
+    var price = parseFloat(document.getElementById("s_price").value);
+    var qty = parseInt(document.getElementById("s_qty").value, 10) || 1;
+
+    if (!item || isNaN(price) || price < 0) {
+      alert("請填寫商品名稱與有效的單價");
+      return;
+    }
+
+    data.selfItems.push({
+      id: uid(),
+      tripId: trip.id,
+      item: item,
+      price: price,
+      qty: qty,
+      purchased: false,
+      createdAt: new Date().toISOString()
+    });
+    saveData();
+
+    document.getElementById("s_item").value = "";
+    document.getElementById("s_price").value = "";
+    document.getElementById("s_qty").value = "1";
+
+    renderAll();
+  }
+
+  function renderSelfTable() {
+    var wrap = document.getElementById("selfTableWrap");
+    var summary = document.getElementById("selfSummary");
+    var trip = getTrip(state.currentTripId);
+    if (!trip) { wrap.innerHTML = '<div class="empty">請先建立行程</div>'; summary.textContent = ""; return; }
+
+    var items = data.selfItems.filter(function (it) { return it.tripId === trip.id; });
+    if (!items.length) {
+      wrap.innerHTML = '<div class="empty">尚未新增自購項目</div>';
+      summary.textContent = "";
+      return;
+    }
+
+    var rate = trip.exchangeRate || 0;
+    var totalTwd = 0;
+
+    var rows = items.map(function (it) {
+      var subtotalTwd = it.price * it.qty * rate;
+      totalTwd += subtotalTwd;
+      return '<tr>' +
+        '<td>' + escapeHtml(it.item) + '</td>' +
+        '<td class="num">' + it.price.toLocaleString("zh-TW") + ' ' + trip.currency +
+          '<br><span class="muted">≈NT$ ' + fmtMoney(it.price * rate) + '</span></td>' +
+        '<td class="num">' + it.qty + '</td>' +
+        '<td class="num"><b>NT$ ' + fmtMoney(subtotalTwd) + '</b></td>' +
+        '<td><button class="ghost del-btn" data-action="delete-self" data-id="' + it.id + '">刪除</button></td>' +
+      '</tr>';
+    }).join("");
+
+    wrap.innerHTML =
+      '<table><thead><tr><th>商品</th><th class="num">單價</th><th class="num">數量</th><th class="num">台幣小計</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>';
+
+    summary.innerHTML = '本行程自購總花費：<b style="color:var(--text)">NT$ ' + fmtMoney(totalTwd) + '</b>';
+  }
+
+  // ---------- 攜帶清單 ----------
+  var PACKING_PRESETS = ["護照", "簽證/入境資料", "手機充電器", "轉接頭", "常備藥品", "現金/信用卡", "行動電源", "盥洗用品", "換洗衣物", "雨具", "隨身WIFI/SIM卡"];
+
+  function addPackingItem(name) {
+    var trip = getTrip(state.currentTripId);
+    if (!trip) { alert("請先建立行程"); return; }
+    name = (name || "").trim();
+    if (!name) return;
+    var exists = data.packingItems.some(function (it) {
+      return it.tripId === trip.id && it.name.toLowerCase() === name.toLowerCase();
+    });
+    if (exists) return;
+    data.packingItems.push({
+      id: uid(), tripId: trip.id, name: name, packed: false, createdAt: new Date().toISOString()
+    });
+    saveData();
+    renderAll();
+  }
+
+  function renderPackingQuickAdd() {
+    var box = document.getElementById("packingQuickAdd");
+    var trip = getTrip(state.currentTripId);
+    var existingNames = trip
+      ? data.packingItems.filter(function (it) { return it.tripId === trip.id; }).map(function (it) { return it.name.toLowerCase(); })
+      : [];
+    box.innerHTML = PACKING_PRESETS.map(function (name) {
+      var added = existingNames.indexOf(name.toLowerCase()) !== -1;
+      return '<button type="button" class="chip" data-action="quick-add-packing" data-name="' + escapeHtml(name) + '"' + (added ? " disabled" : "") + '>' + (added ? "✓ " : "+ ") + escapeHtml(name) + '</button>';
+    }).join("");
+  }
+
+  function renderPackingList() {
+    var wrap = document.getElementById("packingListWrap");
+    var trip = getTrip(state.currentTripId);
+    if (!trip) { wrap.innerHTML = '<div class="empty">請先建立行程</div>'; return; }
+
+    var items = data.packingItems.filter(function (it) { return it.tripId === trip.id; });
+    if (!items.length) {
+      wrap.innerHTML = '<div class="empty">尚未登記攜帶物品，點上方常用項目或自行輸入新增</div>';
+      return;
+    }
+
+    wrap.innerHTML = items.map(function (it) {
+      return '<div class="packing-item">' +
+        '<input type="checkbox" data-action="toggle-packed" data-id="' + it.id + '" ' + (it.packed ? "checked" : "") + '>' +
+        '<span class="name' + (it.packed ? " packed" : "") + '">' + escapeHtml(it.name) + '</span>' +
+        '<button class="ghost del-btn" data-action="delete-packing" data-id="' + it.id + '">刪除</button>' +
+        '</div>';
+    }).join("");
+  }
+
+  function renderReminder() {
+    var box = document.getElementById("reminderContent");
+    var clientFilter = document.getElementById("rm_clientFilter").value;
+    var trips = data.trips.slice().sort(function (a, b) {
+      var da = a.departureDate ? new Date(a.departureDate).getTime() : Infinity;
+      var db = b.departureDate ? new Date(b.departureDate).getTime() : Infinity;
+      return da - db;
+    });
+
+    var groups = trips.map(function (trip) {
+      var toBuyDaigou = data.daigouItems.filter(function (it) {
+        return it.tripId === trip.id && !it.purchased && (!clientFilter || it.client === clientFilter);
+      });
+      var toBuySelf = clientFilter ? [] : data.selfItems.filter(function (it) {
+        return it.tripId === trip.id && !it.purchased;
+      });
+      var toDeliver = data.daigouItems.filter(function (it) {
+        return it.tripId === trip.id && it.purchased && !it.delivered && (!clientFilter || it.client === clientFilter);
+      });
+      var toPay = data.daigouItems.filter(function (it) {
+        return it.tripId === trip.id && it.purchased && !it.paid && (!clientFilter || it.client === clientFilter);
+      });
+      var purchasedSelf = clientFilter ? [] : data.selfItems.filter(function (it) {
+        return it.tripId === trip.id && it.purchased;
+      });
+      var delivered = data.daigouItems.filter(function (it) {
+        return it.tripId === trip.id && it.purchased && it.delivered && (!clientFilter || it.client === clientFilter);
+      });
+      var paidItems = data.daigouItems.filter(function (it) {
+        return it.tripId === trip.id && it.purchased && it.paid && (!clientFilter || it.client === clientFilter);
+      });
+      var count = toBuyDaigou.length + toBuySelf.length + toDeliver.length + toPay.length + purchasedSelf.length + delivered.length + paidItems.length;
+      var rate = trip.exchangeRate || 0;
+      var unpaidTotal = toPay.reduce(function (sum, it) { return sum + it.price * it.qty * rate + it.fee; }, 0);
+      var paidTotal = paidItems.reduce(function (sum, it) { return sum + it.price * it.qty * rate + it.fee; }, 0);
+      return {
+        trip: trip, toBuyDaigou: toBuyDaigou, toBuySelf: toBuySelf, toDeliver: toDeliver, toPay: toPay,
+        purchasedSelf: purchasedSelf, delivered: delivered, paidItems: paidItems,
+        unpaidTotal: unpaidTotal, paidTotal: paidTotal, count: count
+      };
+    }).filter(function (g) { return g.count > 0; });
+
+    if (!groups.length) {
+      box.innerHTML = '<div class="empty">🎉 ' + (clientFilter ? "這位委託人目前沒有待處理項目！" : "目前所有項目都已購買且交付完成，沒有待辦提醒！") + '</div>';
+      return;
+    }
+
+    box.innerHTML = groups.map(function (g) {
+      var d = daysUntil(g.trip.departureDate);
+      var badgeClass = "success", badgeText = "未設定日期";
+      if (d !== null) {
+        if (d < 0) { badgeClass = "warn"; badgeText = "已出發"; }
+        else if (d <= 3) { badgeClass = "danger"; badgeText = "還有 " + d + " 天"; }
+        else if (d <= 7) { badgeClass = "warn"; badgeText = "還有 " + d + " 天"; }
+        else { badgeClass = "success"; badgeText = "還有 " + d + " 天"; }
+      }
+
+      var rate = g.trip.exchangeRate || 0;
+      var amt = function (it) { return "NT$ " + fmtMoney(it.price * it.qty * rate); };
+
+      var daigouRows = g.toBuyDaigou.map(function (it) {
+        return '<div class="reminder-item"><span class="name">' +
+          '<input type="checkbox" data-action="toggle-purchased" data-id="' + it.id + '">' +
+          '<span class="tag">代購</span>' + escapeHtml(it.item) + (it.client ? ('　→ ' + escapeHtml(it.client)) : '') +
+          '</span><span class="muted">數量 ' + it.qty + '　' + amt(it) + '</span></div>';
+      }).join("");
+
+      var selfRows = g.toBuySelf.map(function (it) {
+        return '<div class="reminder-item"><span class="name">' +
+          '<input type="checkbox" data-action="toggle-self-purchased" data-id="' + it.id + '">' +
+          '<span class="tag">自購</span>' + escapeHtml(it.item) +
+          '</span><span class="muted">數量 ' + it.qty + '　' + amt(it) + '</span></div>';
+      }).join("");
+
+      var deliverRows = g.toDeliver.map(function (it) {
+        return '<div class="reminder-item"><span class="name">' +
+          '<input type="checkbox" data-action="toggle-delivered" data-id="' + it.id + '">' +
+          '<span class="tag">待交付</span>' + escapeHtml(it.item) + (it.client ? ('　→ ' + escapeHtml(it.client)) : '') +
+          '</span><span class="row" style="gap:8px;"><span class="muted">數量 ' + it.qty + '　' + amt(it) + '</span>' +
+          '<button class="ghost" data-action="revert-purchased" data-id="' + it.id + '">↩ 退回尚未購買</button></span></div>';
+      }).join("");
+
+      var purchasedSelfRows = g.purchasedSelf.map(function (it) {
+        return '<div class="reminder-item"><span class="name">' +
+          '<input type="checkbox" data-action="toggle-self-purchased" data-id="' + it.id + '" checked>' +
+          '<span class="tag">自購</span>' + escapeHtml(it.item) +
+          '</span><span class="muted">數量 ' + it.qty + '　' + amt(it) + '</span></div>';
+      }).join("");
+
+      var deliveredRows = g.delivered.map(function (it) {
+        return '<div class="reminder-item"><span class="name">' +
+          '<input type="checkbox" data-action="toggle-delivered" data-id="' + it.id + '" checked>' +
+          '<span class="tag">已交付</span>' + escapeHtml(it.item) + (it.client ? ('　→ ' + escapeHtml(it.client)) : '') +
+          '</span><span class="muted">數量 ' + it.qty + '　' + amt(it) + '</span></div>';
+      }).join("");
+
+      var toPayRows = g.toPay.map(function (it) {
+        return '<div class="reminder-item"><span class="name">' +
+          '<input type="checkbox" data-action="toggle-paid" data-id="' + it.id + '">' +
+          '<span class="tag">待收款</span>' + escapeHtml(it.item) + (it.client ? ('　→ ' + escapeHtml(it.client)) : '') +
+          '</span><span class="muted">數量 ' + it.qty + '　' + amt(it) + '</span></div>';
+      }).join("");
+
+      var paidRows = g.paidItems.map(function (it) {
+        return '<div class="reminder-item"><span class="name">' +
+          '<input type="checkbox" data-action="toggle-paid" data-id="' + it.id + '" checked>' +
+          '<span class="tag">已收款</span>' + escapeHtml(it.item) + (it.client ? ('　→ ' + escapeHtml(it.client)) : '') +
+          '</span><span class="muted">數量 ' + it.qty + '　' + amt(it) + '</span></div>';
+      }).join("");
+
+      var toBuySection = (daigouRows || selfRows)
+        ? '<div class="reminder-section"><div class="muted" style="margin-bottom:4px;">尚未購買</div>' + daigouRows + selfRows + '</div>'
+        : "";
+      var deliverSection = deliverRows
+        ? '<div class="reminder-section"><div class="muted" style="margin-bottom:4px;">已購買・待交付給委託人</div>' + deliverRows + '</div>'
+        : "";
+      var toPaySection = toPayRows
+        ? '<div class="reminder-section"><div class="muted" style="margin-bottom:4px;">待收款</div>' + toPayRows + '</div>'
+        : "";
+      var purchasedSelfSection = purchasedSelfRows
+        ? '<div class="reminder-section"><div class="muted" style="margin-bottom:4px;">已購買（自己買）</div>' + purchasedSelfRows + '</div>'
+        : "";
+      var deliveredSection = deliveredRows
+        ? '<div class="reminder-section"><div class="muted" style="margin-bottom:4px;">已交付</div>' + deliveredRows + '</div>'
+        : "";
+      var paidSection = paidRows
+        ? '<div class="reminder-section"><div class="muted" style="margin-bottom:4px;">已收款</div>' + paidRows + '</div>'
+        : "";
+
+      var totalsLine = '<div class="status-line">應收未收：<b style="color:var(--text)">NT$ ' + fmtMoney(g.unpaidTotal) +
+        '</b>　已收款：<b style="color:var(--text)">NT$ ' + fmtMoney(g.paidTotal) + '</b></div>';
+
+      return '<div class="reminder-group">' +
+        '<h3>' + escapeHtml(g.trip.name) + ' <span class="badge ' + badgeClass + '">' + badgeText + '</span> <span class="muted">（共 ' + g.count + ' 項）</span></h3>' +
+        totalsLine +
+        toBuySection + deliverSection + toPaySection + purchasedSelfSection + deliveredSection + paidSection +
+        '</div>';
+    }).join("");
+  }
+
+  // ---------- Tabs ----------
+  function switchTab(tabName) {
+    state.activeTab = tabName;
+    document.querySelectorAll(".tab-btn").forEach(function (btn) {
+      btn.classList.toggle("active", btn.dataset.tab === tabName);
+    });
+    document.querySelectorAll(".tab-panel").forEach(function (panel) {
+      panel.style.display = panel.id === "tab-" + tabName ? "block" : "none";
+    });
+  }
+
+  // ---------- 事件委派（表格內動態產生的按鈕/checkbox） ----------
+  document.addEventListener("click", function (e) {
+    var el = e.target.closest("[data-action]");
+    if (!el) return;
+    var action = el.dataset.action;
+    var id = el.dataset.id;
+
+    if (action === "delete-daigou") {
+      if (confirm("確定刪除這筆代購項目？")) {
+        data.daigouItems = data.daigouItems.filter(function (it) { return it.id !== id; });
+        saveData(); renderAll();
+      }
+    } else if (action === "delete-self") {
+      if (confirm("確定刪除這筆自購項目？")) {
+        data.selfItems = data.selfItems.filter(function (it) { return it.id !== id; });
+        saveData(); renderAll();
+      }
+    } else if (action === "revert-purchased") {
+      var revertItem = data.daigouItems.find(function (it) { return it.id === id; });
+      if (revertItem) {
+        revertItem.purchased = false;
+        revertItem.delivered = false;
+        saveData(); renderAll();
+      }
+    } else if (action === "delete-packing") {
+      data.packingItems = data.packingItems.filter(function (it) { return it.id !== id; });
+      saveData(); renderAll();
+    } else if (action === "quick-add-packing") {
+      addPackingItem(el.dataset.name);
+    }
+  });
+
+  document.addEventListener("change", function (e) {
+    var el = e.target.closest("[data-action]");
+    if (!el) return;
+    var action = el.dataset.action;
+    var id = el.dataset.id;
+    var item;
+
+    if (action === "toggle-purchased") {
+      item = data.daigouItems.find(function (it) { return it.id === id; });
+      if (item) {
+        item.purchased = el.checked;
+        if (!item.purchased) { item.delivered = false; item.paid = false; }
+        saveData(); renderAll();
+      }
+    } else if (action === "toggle-delivered") {
+      item = data.daigouItems.find(function (it) { return it.id === id; });
+      if (item) { item.delivered = el.checked; saveData(); renderAll(); }
+    } else if (action === "toggle-paid") {
+      item = data.daigouItems.find(function (it) { return it.id === id; });
+      if (item) { item.paid = el.checked; saveData(); renderAll(); }
+    } else if (action === "toggle-self-purchased") {
+      item = data.selfItems.find(function (it) { return it.id === id; });
+      if (item) { item.purchased = el.checked; saveData(); renderAll(); }
+    } else if (action === "toggle-packed") {
+      item = data.packingItems.find(function (it) { return it.id === id; });
+      if (item) { item.packed = el.checked; saveData(); renderAll(); }
+    }
+  });
+
+  // ---------- 綁定固定元件事件 ----------
+  document.getElementById("tripSelect").addEventListener("change", function (e) {
+    state.currentTripId = e.target.value;
+    renderAll();
+  });
+  document.getElementById("btnNewTrip").addEventListener("click", function () { showTripForm(false); });
+  document.getElementById("btnEditTrip").addEventListener("click", function () { showTripForm(true); });
+  document.getElementById("btnDeleteTrip").addEventListener("click", deleteCurrentTrip);
+  document.getElementById("btnSaveTrip").addEventListener("click", saveTripForm);
+  document.getElementById("btnCancelTrip").addEventListener("click", hideTripForm);
+  document.getElementById("f_currency").addEventListener("change", updateCurrencyOtherVisibility);
+  document.getElementById("f_date").addEventListener("click", function () {
+    if (typeof this.showPicker === "function") {
+      try { this.showPicker(); } catch (e) {}
+    }
+  });
+  document.getElementById("btnAddDaigou").addEventListener("click", addDaigouItem);
+  document.getElementById("btnAddSelf").addEventListener("click", addSelfItem);
+  document.getElementById("d_clientFilter").addEventListener("change", renderDaigouTable);
+  document.getElementById("rm_clientFilter").addEventListener("change", renderReminder);
+  document.getElementById("btnAddPacking").addEventListener("click", function () {
+    var input = document.getElementById("p_item");
+    addPackingItem(input.value);
+    input.value = "";
+  });
+  document.getElementById("p_item").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") {
+      addPackingItem(this.value);
+      this.value = "";
+    }
+  });
+  document.querySelectorAll(".tab-btn").forEach(function (btn) {
+    btn.addEventListener("click", function () { switchTab(btn.dataset.tab); });
+  });
+
+  // ---------- 主渲染 ----------
+  function renderAll() {
+    renderTripSelect();
+    renderTripMeta();
+    renderClientFilterOptions();
+    renderDaigouTable();
+    renderSelfTable();
+    renderReminder();
+    renderPackingQuickAdd();
+    renderPackingList();
+  }
+
+  renderAll();
+  switchTab("packing");
+})();
+</script>
+</body>
+</html>
