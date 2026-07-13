@@ -221,7 +221,7 @@
   .reminder-item .name { display: flex; align-items: center; gap: 8px; }
   .purchased-row {
     display: grid;
-    grid-template-columns: 50px minmax(70px, 1fr) 100px 84px 84px 64px 110px auto;
+    grid-template-columns: 50px minmax(70px, 1fr) 90px 100px 84px 84px 64px 110px auto;
     align-items: center;
     column-gap: 10px;
     padding: 8px 4px;
@@ -233,6 +233,13 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .purchased-row .store-cell {
+    white-space: nowrap;
+    color: var(--text-dim);
+    font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .purchased-row .client-cell {
     white-space: nowrap;
@@ -267,6 +274,7 @@
       row-gap: 6px;
     }
     .purchased-row .item-cell,
+    .purchased-row .store-cell,
     .purchased-row .client-cell {
       grid-column: 1 / -1;
       white-space: normal;
@@ -278,6 +286,26 @@
     border-radius: 6px;
     background: var(--primary-dim);
     color: var(--primary);
+  }
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 16px;
+  }
+  .modal-box {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    max-width: 480px;
+    width: 100%;
+    max-height: 80vh;
+    overflow-y: auto;
   }
   .top-actions { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
   .status-line { font-size: 12px; color: var(--text-dim); margin-top: 6px; }
@@ -306,11 +334,20 @@
     h1 { font-size: 19px; }
     .card { padding: 12px; }
     .add-form .field { flex: 1 1 100%; }
+    .add-form > button { flex: 1 1 100%; }
     .trip-select-row .field { flex: 1 1 100%; }
+    .trip-select-row > button { flex: 1 1 auto; }
     .rate-box .field { max-width: none; flex: 1 1 100%; }
+    .rate-box > button { flex: 1 1 auto; }
     input, select, button { font-size: 16px; }
     .tab-btn { padding: 10px 12px; font-size: 13px; }
     .card .row > .field[style*="max-width"] { max-width: none !important; flex: 1 1 100%; }
+    .trip-meta { gap: 14px; }
+    .reminder-item { flex-wrap: wrap; row-gap: 6px; }
+    .reminder-item > .row { width: 100%; }
+    button.ghost { padding: 6px 10px; }
+    .modal-box { padding: 14px; }
+    #storeModalList { gap: 12px 14px; }
   }
 </style>
 </head>
@@ -383,6 +420,7 @@
 
   <div class="tabs">
     <button class="tab-btn active" data-tab="packing">🎒 攜帶清單</button>
+    <button class="tab-btn" data-tab="itinerary">🗓️ 行程安排</button>
     <button class="tab-btn" data-tab="daigou">🛍️ 代購清單</button>
     <button class="tab-btn" data-tab="self">🛒 自己購買清單</button>
     <button class="tab-btn" data-tab="reminder">🔔 購買提醒</button>
@@ -408,6 +446,34 @@
     </div>
   </div>
 
+  <!-- 行程安排 -->
+  <div id="tab-itinerary" class="tab-panel" style="display:none;">
+    <div class="card">
+      <h2>新增行程項目</h2>
+      <div class="add-form">
+        <div class="field" style="max-width:90px;">
+          <label>第幾天</label>
+          <input id="it_day" type="number" min="1" step="1" value="1">
+        </div>
+        <div class="field" style="max-width:100px;">
+          <label>時間（選填，24H）</label>
+          <input id="it_time" placeholder="1400 或 14:00">
+        </div>
+        <div class="field grow">
+          <label>地點/活動</label>
+          <input id="it_place" placeholder="例如：小鹿街">
+        </div>
+        <button id="btnAddItinerary">新增</button>
+      </div>
+      <div class="row" style="align-items:center; gap:10px; margin-top:4px;">
+        <span class="muted" style="font-size:13px;">這裡有的店家（選填）</span>
+        <button type="button" class="secondary" data-action="open-store-modal" data-target="add">🏬 選擇店家</button>
+        <span id="it_storesSummary" class="muted" style="font-size:12px;">尚未選擇</span>
+      </div>
+    </div>
+    <div id="itineraryContent"></div>
+  </div>
+
   <!-- 代購清單 -->
   <div id="tab-daigou" class="tab-panel" style="display:none;">
     <div class="card">
@@ -417,6 +483,11 @@
         <div class="field grow">
           <label>委託人/客戶</label>
           <input id="d_client" placeholder="姓名">
+        </div>
+        <div class="field grow">
+          <label>店名（選填）</label>
+          <input id="d_store" list="d_storeList" placeholder="例如：GU">
+          <datalist id="d_storeList"></datalist>
         </div>
         <div class="field grow">
           <label>商品名稱</label>
@@ -429,10 +500,6 @@
         <div class="field">
           <label>代購費(台幣)</label>
           <input id="d_fee" type="number" min="0" step="1" placeholder="0">
-        </div>
-        <div class="field grow">
-          <label>商品連結(選填)</label>
-          <input id="d_link" placeholder="https://">
         </div>
         <button id="btnAddDaigou">新增</button>
       </div>
@@ -534,6 +601,20 @@
 
 </div>
 
+<div id="storeModalOverlay" class="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <div class="row" style="justify-content:space-between; align-items:center;">
+      <h2 style="margin:0;">選擇店家</h2>
+      <button class="ghost" data-action="close-store-modal">✕</button>
+    </div>
+    <div id="storeModalList" style="margin:12px 0; display:flex; flex-wrap:wrap; gap:10px 16px; max-height:50vh; overflow-y:auto;"></div>
+    <div class="row" style="justify-content:flex-end; gap:8px;">
+      <button class="secondary" data-action="close-store-modal">取消</button>
+      <button data-action="confirm-store-modal">確定</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function () {
   "use strict";
@@ -549,7 +630,11 @@
     editingTripId: null,
     editingDaigouId: null,
     editingSelfId: null,
-    editingFoodId: null
+    editingFoodId: null,
+    editingItineraryId: null,
+    storeModalTarget: null,
+    itineraryStoreSelections: {},
+    showManualRate: false
   };
 
   function loadData() {
@@ -562,12 +647,13 @@
         parsed.selfItems = parsed.selfItems || [];
         parsed.packingItems = parsed.packingItems || [];
         parsed.foodItems = parsed.foodItems || [];
+        parsed.itineraryItems = parsed.itineraryItems || [];
         return parsed;
       }
     } catch (e) {
       console.warn("讀取本機資料失敗，將重新初始化", e);
     }
-    return { trips: [], daigouItems: [], selfItems: [], packingItems: [], foodItems: [] };
+    return { trips: [], daigouItems: [], selfItems: [], packingItems: [], foodItems: [], itineraryItems: [] };
   }
 
   function saveData() {
@@ -576,6 +662,35 @@
 
   function uid() {
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+
+  function pad2(n) {
+    return (n < 10 ? "0" : "") + n;
+  }
+
+  function normalizeTime24(raw) {
+    raw = (raw || "").trim();
+    if (!raw) return { ok: true, value: "" };
+    var h, mi;
+    var colonMatch = raw.match(/^(\d{1,2}):(\d{1,2})$/);
+    var digitsMatch = raw.match(/^(\d{1,4})$/);
+    if (colonMatch) {
+      h = parseInt(colonMatch[1], 10);
+      mi = parseInt(colonMatch[2], 10);
+    } else if (digitsMatch) {
+      var digits = digitsMatch[1];
+      if (digits.length <= 2) {
+        h = parseInt(digits, 10);
+        mi = 0;
+      } else {
+        h = parseInt(digits.slice(0, -2), 10);
+        mi = parseInt(digits.slice(-2), 10);
+      }
+    } else {
+      return { ok: false };
+    }
+    if (isNaN(h) || isNaN(mi) || h < 0 || h > 23 || mi < 0 || mi > 59) return { ok: false };
+    return { ok: true, value: pad2(h) + ":" + pad2(mi) };
   }
 
   function escapeHtml(str) {
@@ -689,6 +804,15 @@
     return diff;
   }
 
+  var WEEKDAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"];
+
+  function formatDayDate(departureDate, dayNum) {
+    if (!departureDate) return "";
+    var d = new Date(departureDate + "T00:00:00");
+    d.setDate(d.getDate() + (dayNum - 1));
+    return (d.getMonth() + 1) + "/" + d.getDate() + "（週" + WEEKDAY_LABELS[d.getDay()] + "）";
+  }
+
   function renderTripMeta() {
     var box = document.getElementById("tripMeta");
     var trip = getTrip(state.currentTripId);
@@ -704,20 +828,36 @@
       '<div class="item"><label>出發日期</label><b>' + (trip.departureDate ? escapeHtml(trip.departureDate) : "—") + '</b><span class="muted">' + dText + '</span></div>' +
       '<div class="item"><label>匯率</label><b>' + rateText + '</b><span class="muted">更新於 ' + rateUpdated + (trip.rateSource === "cache" ? "（快取）" : "") + '</span></div>' +
       '<div class="item rate-box">' +
-        '<div class="field"><label>手動匯率</label><input type="number" step="0.0001" min="0" id="manualRateInput" value="' + (trip.exchangeRate || "") + '"></div>' +
-        '<button class="secondary" id="btnManualRate">套用</button>' +
+        (state.showManualRate
+          ? '<div class="field"><label>手動匯率</label><input type="number" step="0.0001" min="0" id="manualRateInput" value="' + (trip.exchangeRate || "") + '"></div>' +
+            '<button class="secondary" id="btnManualRate">套用</button>' +
+            '<button class="ghost" id="btnCancelManualRate">取消</button>'
+          : '<button class="ghost" id="btnToggleManualRate">✏️ 手動輸入匯率</button>'
+        ) +
         '<button class="secondary" id="btnRefreshRate">🔄 重新抓取</button>' +
       '</div>';
 
-    document.getElementById("btnManualRate").onclick = function () {
-      var v = parseFloat(document.getElementById("manualRateInput").value);
-      if (isNaN(v) || v <= 0) { alert("請輸入有效的匯率數字"); return; }
-      trip.exchangeRate = v;
-      trip.rateUpdatedAt = new Date().toISOString();
-      trip.rateSource = "manual";
-      saveData();
-      renderAll();
-    };
+    if (state.showManualRate) {
+      document.getElementById("btnManualRate").onclick = function () {
+        var v = parseFloat(document.getElementById("manualRateInput").value);
+        if (isNaN(v) || v <= 0) { alert("請輸入有效的匯率數字"); return; }
+        trip.exchangeRate = v;
+        trip.rateUpdatedAt = new Date().toISOString();
+        trip.rateSource = "manual";
+        state.showManualRate = false;
+        saveData();
+        renderAll();
+      };
+      document.getElementById("btnCancelManualRate").onclick = function () {
+        state.showManualRate = false;
+        renderAll();
+      };
+    } else {
+      document.getElementById("btnToggleManualRate").onclick = function () {
+        state.showManualRate = true;
+        renderAll();
+      };
+    }
     document.getElementById("btnRefreshRate").onclick = function () {
       refreshTripRate(trip).catch(function () {});
     };
@@ -829,12 +969,13 @@
   function deleteCurrentTrip() {
     var trip = getTrip(state.currentTripId);
     if (!trip) return;
-    if (!confirm('確定要刪除行程「' + trip.name + '」嗎？此行程底下的代購、自購、攜帶清單與餐飲紀錄也會一併刪除，此動作無法復原。')) return;
+    if (!confirm('確定要刪除行程「' + trip.name + '」嗎？此行程底下的代購、自購、攜帶清單、餐飲紀錄與行程安排也會一併刪除，此動作無法復原。')) return;
     data.trips = data.trips.filter(function (t) { return t.id !== trip.id; });
     data.daigouItems = data.daigouItems.filter(function (it) { return it.tripId !== trip.id; });
     data.selfItems = data.selfItems.filter(function (it) { return it.tripId !== trip.id; });
     data.packingItems = data.packingItems.filter(function (it) { return it.tripId !== trip.id; });
     data.foodItems = data.foodItems.filter(function (it) { return it.tripId !== trip.id; });
+    data.itineraryItems = data.itineraryItems.filter(function (it) { return it.tripId !== trip.id; });
     state.currentTripId = data.trips.length ? data.trips[0].id : null;
     saveData();
     renderAll();
@@ -845,10 +986,10 @@
     var trip = getTrip(state.currentTripId);
     if (!trip) { alert("請先建立行程"); return; }
     var client = document.getElementById("d_client").value.trim();
+    var store = document.getElementById("d_store").value.trim();
     var item = document.getElementById("d_item").value.trim();
     var qty = parseInt(document.getElementById("d_qty").value, 10) || 1;
     var fee = parseFloat(document.getElementById("d_fee").value) || 0;
-    var link = document.getElementById("d_link").value.trim();
 
     if (!item) {
       alert("請填寫商品名稱");
@@ -859,11 +1000,11 @@
       id: uid(),
       tripId: trip.id,
       client: client,
+      store: store,
       item: item,
       price: null,
       qty: qty,
       fee: fee,
-      link: link,
       purchased: false,
       delivered: false,
       paid: false,
@@ -872,10 +1013,10 @@
     saveData();
 
     document.getElementById("d_client").value = "";
+    document.getElementById("d_store").value = "";
     document.getElementById("d_item").value = "";
     document.getElementById("d_qty").value = "1";
     document.getElementById("d_fee").value = "";
-    document.getElementById("d_link").value = "";
 
     renderAll();
   }
@@ -920,6 +1061,7 @@
         hasPrice: hasPrice,
         html: '<tr><td colspan="100%">' +
           '<div class="row" style="gap:10px; align-items:flex-end;">' +
+            '<div class="field grow"><label>店名</label><input id="editStore_' + it.id + '" value="' + escapeHtml(it.store || "") + '"></div>' +
             '<div class="field" style="max-width:150px;"><label>單價（' + escapeHtml(currency) + '，選填）</label><input type="number" min="0" step="0.01" id="editPrice_' + it.id + '" value="' + (hasPrice ? it.price : "") + '" placeholder="輸入單價"></div>' +
             '<div class="field" style="max-width:100px;"><label>數量</label><input type="number" min="1" step="1" id="editQty_' + it.id + '" value="' + it.qty + '"></div>' +
             '<div class="field" style="max-width:140px;"><label>代購費(台幣)</label><input type="number" min="0" step="1" id="editFee_' + it.id + '" value="' + it.fee + '"></div>' +
@@ -936,8 +1078,8 @@
       html: '<tr>' +
         '<td>' + escapeHtml(it.client || "—") + '</td>' +
         (showTripColumn ? '<td>' + escapeHtml(trip ? trip.name : "—") + '</td>' : "") +
+        '<td>' + (it.store ? escapeHtml(it.store) : '<span class="muted">—</span>') + '</td>' +
         '<td>' + escapeHtml(it.item) +
-          (it.link ? ' <span class="link-cell"><a href="' + escapeHtml(it.link) + '" target="_blank" rel="noopener">連結</a></span>' : "") +
           (!hasPrice ? ' <span class="badge warn">待輸入價格</span>' : "") +
         '</td>' +
         '<td class="num">' + it.qty + '</td>' +
@@ -956,6 +1098,16 @@
     var wrap = document.getElementById("daigouTableWrap");
     var summary = document.getElementById("daigouSummary");
     var clientFilter = document.getElementById("d_clientFilter").value;
+
+    var currentTripForStores = getTrip(state.currentTripId);
+    var storeNames = currentTripForStores
+      ? Array.from(new Set(
+          data.daigouItems.filter(function (it) { return it.tripId === currentTripForStores.id; })
+            .map(function (it) { return it.store; }).filter(function (s) { return s; })
+        )).sort(function (a, b) { return a.localeCompare(b, "zh-Hant"); })
+      : [];
+    document.getElementById("d_storeList").innerHTML =
+      storeNames.map(function (s) { return '<option value="' + escapeHtml(s) + '">'; }).join("");
 
     var items, showTripColumn, summaryLabel;
 
@@ -989,7 +1141,7 @@
 
     wrap.innerHTML =
       '<table><thead><tr>' +
-      '<th>委託人</th>' + (showTripColumn ? "<th>行程</th>" : "") + '<th>商品</th><th class="num">數量</th>' +
+      '<th>委託人</th>' + (showTripColumn ? "<th>行程</th>" : "") + '<th>店名</th><th>商品</th><th class="num">數量</th>' +
       '<th class="num">台幣小計</th><th class="num">代購費</th><th class="num">應收總額</th><th></th>' +
       '</tr></thead><tbody>' + rows + '</tbody></table>';
 
@@ -1242,6 +1394,176 @@
       (unpricedCount ? ('　<span class="muted">（' + unpricedCount + ' 項尚未輸入價格，未計入總額）</span>') : "");
   }
 
+  // ---------- 行程安排 ----------
+  function getAllStoreNamesForCurrentTrip() {
+    var trip = getTrip(state.currentTripId);
+    if (!trip) return [];
+    return Array.from(new Set(
+      data.selfItems.filter(function (i) { return i.tripId === trip.id; }).map(function (i) { return i.store; })
+        .concat(data.daigouItems.filter(function (i) { return i.tripId === trip.id; }).map(function (i) { return i.store; }))
+        .concat(data.foodItems.filter(function (i) { return i.tripId === trip.id; }).map(function (i) { return i.store; }))
+        .filter(function (s) { return s; })
+    )).sort(function (a, b) { return a.localeCompare(b, "zh-Hant"); });
+  }
+
+  function openStoreModal(target) {
+    var allStoreNames = getAllStoreNamesForCurrentTrip();
+    var current = state.itineraryStoreSelections[target] || [];
+    document.getElementById("storeModalList").innerHTML = allStoreNames.length
+      ? allStoreNames.map(function (s) {
+          var checked = current.indexOf(s) !== -1;
+          return '<label style="display:flex; align-items:center; gap:6px; font-size:14px;"><input type="checkbox" value="' + escapeHtml(s) + '"' + (checked ? " checked" : "") + '> ' + escapeHtml(s) + '</label>';
+        }).join("")
+      : '<span class="muted">尚無店家紀錄，先在自購/代購/餐飲新增項目後這裡會出現選項</span>';
+    state.storeModalTarget = target;
+    document.getElementById("storeModalOverlay").style.display = "flex";
+  }
+
+  function closeStoreModal() {
+    document.getElementById("storeModalOverlay").style.display = "none";
+    state.storeModalTarget = null;
+  }
+
+  function confirmStoreModal() {
+    var checked = Array.prototype.filter.call(
+      document.getElementById("storeModalList").querySelectorAll("input[type=checkbox]"),
+      function (cb) { return cb.checked; }
+    ).map(function (cb) { return cb.value; });
+    state.itineraryStoreSelections[state.storeModalTarget] = checked;
+    closeStoreModal();
+    renderAll();
+  }
+
+  function addItineraryItem() {
+    var trip = getTrip(state.currentTripId);
+    if (!trip) { alert("請先建立行程"); return; }
+    var day = parseInt(document.getElementById("it_day").value, 10) || 1;
+    var timeResult = normalizeTime24(document.getElementById("it_time").value);
+    var place = document.getElementById("it_place").value.trim();
+    var stores = state.itineraryStoreSelections["add"] || [];
+
+    if (!place) {
+      alert("請填寫地點/活動");
+      return;
+    }
+    if (!timeResult.ok) {
+      alert("時間格式請輸入 HH:MM，例如 14:00，或留空");
+      return;
+    }
+    var time = timeResult.value;
+
+    data.itineraryItems.push({
+      id: uid(),
+      tripId: trip.id,
+      day: day,
+      time: time,
+      place: place,
+      stores: stores,
+      createdAt: new Date().toISOString()
+    });
+    saveData();
+
+    document.getElementById("it_time").value = "";
+    document.getElementById("it_place").value = "";
+    delete state.itineraryStoreSelections["add"];
+
+    renderAll();
+  }
+
+  function renderItineraryContent() {
+    var box = document.getElementById("itineraryContent");
+    var trip = getTrip(state.currentTripId);
+    if (!trip) { box.innerHTML = '<div class="card"><div class="empty">請先建立行程</div></div>'; return; }
+
+    var items = data.itineraryItems.filter(function (it) { return it.tripId === trip.id; });
+
+    var addSelectedStores = state.itineraryStoreSelections["add"] || [];
+    document.getElementById("it_storesSummary").textContent =
+      addSelectedStores.length ? addSelectedStores.join("、") : "尚未選擇";
+
+    if (!items.length) {
+      box.innerHTML = '<div class="card"><div class="empty">尚未新增行程項目</div></div>';
+      return;
+    }
+
+    function findRelatedReminders(it) {
+      var stores = it.stores || [];
+      if (!stores.length) return "";
+      var toBuySelf = data.selfItems.filter(function (si) {
+        return si.tripId === trip.id && !si.purchased && si.store && stores.indexOf(si.store) !== -1;
+      });
+      var toBuyDaigou = data.daigouItems.filter(function (di) {
+        return di.tripId === trip.id && !di.purchased && di.store && stores.indexOf(di.store) !== -1;
+      });
+      var foodHere = data.foodItems.filter(function (fi) {
+        return fi.tripId === trip.id && fi.store && stores.indexOf(fi.store) !== -1;
+      });
+      if (!toBuySelf.length && !toBuyDaigou.length && !foodHere.length) return "";
+      var lines = [];
+      if (toBuySelf.length) {
+        lines.push('🛒 別忘了買：' + toBuySelf.map(function (si) { return escapeHtml(si.item) + '（' + escapeHtml(si.store) + '）'; }).join('、'));
+      }
+      if (toBuyDaigou.length) {
+        lines.push('🛍️ 代購別忘了買：' + toBuyDaigou.map(function (di) { return escapeHtml(di.item) + '（' + escapeHtml(di.store) + (di.client ? '→' + escapeHtml(di.client) : '') + '）'; }).join('、'));
+      }
+      if (foodHere.length) {
+        lines.push('🍽️ 這裡的美食：' + foodHere.map(function (fi) { return escapeHtml(fi.item) + '（' + escapeHtml(fi.store) + '）'; }).join('、'));
+      }
+      return '<div class="reminder-section" style="margin-top:6px; padding:8px 10px;">' + lines.join('<br>') + '</div>';
+    }
+
+    var dayOrder = [];
+    var groups = {};
+    items.forEach(function (it) {
+      var key = it.day || 1;
+      if (!groups[key]) { groups[key] = []; dayOrder.push(key); }
+      groups[key].push(it);
+    });
+    dayOrder.sort(function (a, b) { return a - b; });
+
+    box.innerHTML = dayOrder.map(function (day) {
+      var dayItems = groups[day].slice().sort(function (a, b) {
+        if (!a.time && !b.time) return 0;
+        if (!a.time) return 1;
+        if (!b.time) return -1;
+        return a.time.localeCompare(b.time);
+      });
+      var rows = dayItems.map(function (it) {
+        if (it.id === state.editingItineraryId) {
+          var editSelected = state.itineraryStoreSelections[it.id] || [];
+          return '<div class="reminder-item" style="flex-direction:column; align-items:stretch; gap:8px;">' +
+            '<div class="row" style="gap:10px; align-items:flex-end;">' +
+              '<div class="field" style="max-width:90px;"><label>第幾天</label><input type="number" min="1" step="1" id="editDay_' + it.id + '" value="' + it.day + '"></div>' +
+              '<div class="field" style="max-width:100px;"><label>時間（24H）</label><input id="editTime_' + it.id + '" value="' + escapeHtml(it.time || "") + '" placeholder="1400 或 14:00"></div>' +
+              '<div class="field grow"><label>地點/活動</label><input id="editPlace_' + it.id + '" value="' + escapeHtml(it.place) + '"></div>' +
+            '</div>' +
+            '<div class="row" style="align-items:center; gap:10px;">' +
+              '<span class="muted" style="font-size:13px;">這裡有的店家</span>' +
+              '<button type="button" class="secondary" data-action="open-store-modal" data-target="' + it.id + '">🏬 選擇店家</button>' +
+              '<span class="muted" style="font-size:12px;">' + (editSelected.length ? escapeHtml(editSelected.join("、")) : "尚未選擇") + '</span>' +
+            '</div>' +
+            '<div class="row" style="gap:8px;">' +
+              '<button data-action="save-itinerary-edit" data-id="' + it.id + '">儲存</button>' +
+              '<button class="ghost" data-action="cancel-itinerary-edit" data-id="' + it.id + '">取消</button>' +
+            '</div>' +
+          '</div>';
+        }
+        return '<div class="reminder-item" style="flex-direction:column; align-items:stretch; gap:4px;">' +
+          '<div class="row" style="justify-content:space-between; align-items:center;">' +
+            '<span class="name">' + (it.time ? ('<b>' + escapeHtml(it.time) + '</b>　') : '') + escapeHtml(it.place) + '</span>' +
+            '<span class="row" style="gap:6px;">' +
+              '<button class="ghost" data-action="edit-itinerary" data-id="' + it.id + '">編輯</button>' +
+              '<button class="ghost del-btn" data-action="delete-itinerary" data-id="' + it.id + '">刪除</button>' +
+            '</span>' +
+          '</div>' +
+          findRelatedReminders(it) +
+        '</div>';
+      }).join("");
+      var dateLabel = formatDayDate(trip.departureDate, day);
+      return '<div class="card"><h2>Day ' + day + (dateLabel ? ('　<span class="muted" style="font-size:13px; font-weight:400;">' + dateLabel + '</span>') : '') + '</h2>' + rows + '</div>';
+    }).join("");
+  }
+
   // ---------- 攜帶清單 ----------
   var PACKING_PRESETS = ["護照", "簽證/入境資料", "手機充電器", "轉接頭", "常備藥品", "現金/信用卡", "行動電源", "盥洗用品", "換洗衣物", "雨具", "隨身WIFI/SIM卡"];
 
@@ -1360,7 +1682,7 @@
         var priced = it.price !== null && it.price !== undefined && !isNaN(it.price);
         return '<div class="reminder-item"><span class="name">' +
           '<input type="checkbox" data-action="toggle-purchased" data-id="' + it.id + '"' + (priced ? "" : " disabled title=\"請先輸入價格\"") + '>' +
-          '<span class="tag">代購</span>' + escapeHtml(it.item) + (it.client ? ('　→ ' + escapeHtml(it.client)) : '') +
+          '<span class="tag">代購</span>' + escapeHtml(it.item) + (it.store ? ('　🏬 ' + escapeHtml(it.store)) : '') + (it.client ? ('　→ ' + escapeHtml(it.client)) : '') +
           '</span><span class="row" style="gap:6px;">' +
           (priced
             ? '<span class="muted">數量 ' + it.qty + '　' + amt(it) + '</span>'
@@ -1384,6 +1706,7 @@
         return '<div class="purchased-row">' +
           '<span class="tag">代購</span>' +
           '<span class="item-cell">' + escapeHtml(it.item) + '</span>' +
+          '<span class="store-cell">' + (it.store ? ('🏬 ' + escapeHtml(it.store)) : '') + '</span>' +
           '<span class="client-cell">' + (it.client ? ('→ ' + escapeHtml(it.client)) : '') + '</span>' +
           '<label><input type="checkbox" data-action="toggle-delivered" data-id="' + it.id + '"' + (it.delivered ? " checked" : "") + '> 已交付</label>' +
           '<label><input type="checkbox" data-action="toggle-paid" data-id="' + it.id + '"' + (it.paid ? " checked" : "") + '> 已收款</label>' +
@@ -1451,6 +1774,53 @@
         data.foodItems = data.foodItems.filter(function (it) { return it.id !== id; });
         saveData(); renderAll();
       }
+    } else if (action === "delete-itinerary") {
+      if (confirm("確定刪除這筆行程項目？")) {
+        data.itineraryItems = data.itineraryItems.filter(function (it) { return it.id !== id; });
+        saveData(); renderAll();
+      }
+    } else if (action === "open-store-modal") {
+      openStoreModal(el.dataset.target);
+    } else if (action === "close-store-modal") {
+      closeStoreModal();
+    } else if (action === "confirm-store-modal") {
+      confirmStoreModal();
+    } else if (action === "edit-itinerary") {
+      var editingItin = data.itineraryItems.find(function (it) { return it.id === id; });
+      state.itineraryStoreSelections[id] = editingItin ? (editingItin.stores || []).slice() : [];
+      state.editingItineraryId = id;
+      renderAll();
+    } else if (action === "cancel-itinerary-edit") {
+      delete state.itineraryStoreSelections[id];
+      state.editingItineraryId = null;
+      renderAll();
+    } else if (action === "save-itinerary-edit") {
+      var editItinerary = data.itineraryItems.find(function (it) { return it.id === id; });
+      if (editItinerary) {
+        var newDay = parseInt(document.getElementById("editDay_" + id).value, 10);
+        var newTimeResult = normalizeTime24(document.getElementById("editTime_" + id).value);
+        var newPlace = document.getElementById("editPlace_" + id).value.trim();
+        var newStores = state.itineraryStoreSelections[id] || [];
+        if (!newPlace) {
+          alert("請填寫地點/活動");
+          return;
+        }
+        if (isNaN(newDay) || newDay < 1) {
+          alert("第幾天請輸入有效數字");
+          return;
+        }
+        if (!newTimeResult.ok) {
+          alert("時間格式請輸入 HH:MM，例如 14:00，或留空");
+          return;
+        }
+        editItinerary.day = newDay;
+        editItinerary.time = newTimeResult.value;
+        editItinerary.place = newPlace;
+        editItinerary.stores = newStores;
+        delete state.itineraryStoreSelections[id];
+        state.editingItineraryId = null;
+        saveData(); renderAll();
+      }
     } else if (action === "revert-purchased") {
       var revertItem = data.daigouItems.find(function (it) { return it.id === id; });
       if (revertItem) {
@@ -1472,6 +1842,7 @@
     } else if (action === "save-daigou-edit") {
       var editItem = data.daigouItems.find(function (it) { return it.id === id; });
       if (editItem) {
+        var newStore = document.getElementById("editStore_" + id).value.trim();
         var priceRaw = document.getElementById("editPrice_" + id).value.trim();
         var newPrice = priceRaw === "" ? null : parseFloat(priceRaw);
         var newQty = parseInt(document.getElementById("editQty_" + id).value, 10);
@@ -1488,6 +1859,7 @@
           alert("代購費請輸入有效數字");
           return;
         }
+        editItem.store = newStore;
         editItem.price = newPrice;
         editItem.qty = newQty;
         editItem.fee = newFee;
@@ -1623,6 +1995,7 @@
   document.getElementById("btnAddDaigou").addEventListener("click", addDaigouItem);
   document.getElementById("btnAddSelf").addEventListener("click", addSelfItem);
   document.getElementById("btnAddFood").addEventListener("click", addFoodItem);
+  document.getElementById("btnAddItinerary").addEventListener("click", addItineraryItem);
   document.getElementById("d_clientFilter").addEventListener("change", renderDaigouTable);
   document.getElementById("rm_clientFilter").addEventListener("change", renderReminder);
   document.getElementById("btnAddPacking").addEventListener("click", function () {
@@ -1651,6 +2024,7 @@
     renderPackingQuickAdd();
     renderPackingList();
     renderFoodTable();
+    renderItineraryContent();
   }
 
   renderAll();
