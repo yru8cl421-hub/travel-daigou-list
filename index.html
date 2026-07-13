@@ -459,6 +459,11 @@
       <div class="muted" style="margin-bottom:10px;">先輸入要買什麼，單價到「🔔 購買提醒」現場購買時再輸入</div>
       <div class="add-form">
         <div class="field grow">
+          <label>店名（選填）</label>
+          <input id="s_store" list="s_storeList" placeholder="例如：唐吉訶德">
+          <datalist id="s_storeList"></datalist>
+        </div>
+        <div class="field grow">
           <label>商品名稱</label>
           <input id="s_item" placeholder="商品名稱">
         </div>
@@ -996,6 +1001,7 @@
   function addSelfItem() {
     var trip = getTrip(state.currentTripId);
     if (!trip) { alert("請先建立行程"); return; }
+    var store = document.getElementById("s_store").value.trim();
     var item = document.getElementById("s_item").value.trim();
     var qty = parseInt(document.getElementById("s_qty").value, 10) || 1;
 
@@ -1007,6 +1013,7 @@
     data.selfItems.push({
       id: uid(),
       tripId: trip.id,
+      store: store,
       item: item,
       price: null,
       qty: qty,
@@ -1015,6 +1022,7 @@
     });
     saveData();
 
+    document.getElementById("s_store").value = "";
     document.getElementById("s_item").value = "";
     document.getElementById("s_qty").value = "1";
 
@@ -1025,53 +1033,82 @@
     var wrap = document.getElementById("selfTableWrap");
     var summary = document.getElementById("selfSummary");
     var trip = getTrip(state.currentTripId);
-    if (!trip) { wrap.innerHTML = '<div class="empty">請先建立行程</div>'; summary.textContent = ""; return; }
+    if (!trip) {
+      wrap.innerHTML = '<div class="empty">請先建立行程</div>';
+      summary.textContent = "";
+      document.getElementById("s_storeList").innerHTML = "";
+      return;
+    }
 
     var items = data.selfItems.filter(function (it) { return it.tripId === trip.id; });
+
+    var storeNames = Array.from(new Set(items.map(function (it) { return it.store; }).filter(function (s) { return s; })))
+      .sort(function (a, b) { return a.localeCompare(b, "zh-Hant"); });
+    document.getElementById("s_storeList").innerHTML =
+      storeNames.map(function (s) { return '<option value="' + escapeHtml(s) + '">'; }).join("");
+
     if (!items.length) {
       wrap.innerHTML = '<div class="empty">尚未新增自購項目</div>';
       summary.textContent = "";
       return;
     }
 
-    var purchasedCount = items.filter(function (it) { return it.purchased; }).length;
     var rate = trip.exchangeRate || 0;
     var totalTwd = 0;
     var unpricedCount = 0;
+    var purchasedCount = 0;
 
-    var rows = items.map(function (it) {
-      var hasPrice = it.price !== null && it.price !== undefined && !isNaN(it.price);
-      var subtotalTwd = hasPrice ? it.price * it.qty * rate : 0;
-      if (hasPrice) totalTwd += subtotalTwd; else unpricedCount++;
+    var groupOrder = [];
+    var groups = {};
+    items.forEach(function (it) {
+      var key = it.store || "";
+      if (!groups[key]) { groups[key] = []; groupOrder.push(key); }
+      groups[key].push(it);
+    });
 
-      if (it.id === state.editingSelfId) {
-        return '<tr><td colspan="100%">' +
-          '<div class="row" style="gap:10px; align-items:flex-end;">' +
-            '<div class="field grow"><label>商品名稱</label><input id="editItem_' + it.id + '" value="' + escapeHtml(it.item) + '"></div>' +
-            '<div class="field" style="max-width:150px;"><label>單價（' + escapeHtml(trip.currency) + '，選填）</label><input type="number" min="0" step="0.01" id="editPrice_' + it.id + '" value="' + (hasPrice ? it.price : "") + '" placeholder="輸入單價"></div>' +
-            '<div class="field" style="max-width:100px;"><label>數量</label><input type="number" min="1" step="1" id="editQty_' + it.id + '" value="' + it.qty + '"></div>' +
-            '<button data-action="save-self-edit" data-id="' + it.id + '">儲存</button>' +
-            '<button class="ghost" data-action="cancel-self-edit" data-id="' + it.id + '">取消</button>' +
-          '</div>' +
-        '</td></tr>';
-      }
-      return '<tr>' +
-        '<td>' + escapeHtml(it.item) + (!hasPrice ? ' <span class="badge warn">待輸入價格</span>' : "") + '</td>' +
-        '<td class="num">' + (hasPrice ? (it.price.toLocaleString("zh-TW") + ' ' + trip.currency) : '—') + '</td>' +
-        '<td class="num">' + it.qty + '</td>' +
-        '<td class="num">' + (hasPrice ? ('NT$ ' + fmtMoney(subtotalTwd)) : '—') + '</td>' +
-        '<td>' + (it.purchased ? '<span class="badge success">已購買</span>' : '<span class="badge warn">尚未購買</span>') + '</td>' +
-        '<td class="row" style="gap:4px; flex-wrap:nowrap;">' +
-          '<button class="ghost" data-action="edit-self" data-id="' + it.id + '">編輯</button>' +
-          '<button class="ghost del-btn" data-action="delete-self" data-id="' + it.id + '">刪除</button>' +
-        '</td>' +
-      '</tr>';
+    var sections = groupOrder.map(function (storeName) {
+      var groupItems = groups[storeName];
+      var groupTwd = 0;
+      var rows = groupItems.map(function (it) {
+        if (it.purchased) purchasedCount++;
+        var hasPrice = it.price !== null && it.price !== undefined && !isNaN(it.price);
+        var subtotalTwd = hasPrice ? it.price * it.qty * rate : 0;
+        if (hasPrice) { totalTwd += subtotalTwd; groupTwd += subtotalTwd; } else { unpricedCount++; }
+
+        if (it.id === state.editingSelfId) {
+          return '<div class="reminder-item">' +
+            '<div class="row" style="gap:10px; align-items:flex-end; width:100%;">' +
+              '<div class="field grow"><label>店名</label><input id="editStore_' + it.id + '" value="' + escapeHtml(it.store || "") + '"></div>' +
+              '<div class="field grow"><label>商品名稱</label><input id="editItem_' + it.id + '" value="' + escapeHtml(it.item) + '"></div>' +
+              '<div class="field" style="max-width:150px;"><label>單價（' + escapeHtml(trip.currency) + '，選填）</label><input type="number" min="0" step="0.01" id="editPrice_' + it.id + '" value="' + (hasPrice ? it.price : "") + '" placeholder="輸入單價"></div>' +
+              '<div class="field" style="max-width:100px;"><label>數量</label><input type="number" min="1" step="1" id="editQty_' + it.id + '" value="' + it.qty + '"></div>' +
+              '<button data-action="save-self-edit" data-id="' + it.id + '">儲存</button>' +
+              '<button class="ghost" data-action="cancel-self-edit" data-id="' + it.id + '">取消</button>' +
+            '</div>' +
+          '</div>';
+        }
+        return '<div class="reminder-item"><span class="name">' +
+          escapeHtml(it.item) + (!hasPrice ? ' <span class="badge warn">待輸入價格</span>' : "") +
+          '</span><span class="row" style="gap:10px;">' +
+            (it.purchased ? '<span class="badge success">已購買</span>' : '<span class="badge warn">尚未購買</span>') +
+            '<span class="muted">數量 ' + it.qty + (hasPrice ? ('　' + it.price.toLocaleString("zh-TW") + ' ' + trip.currency + '　NT$ ' + fmtMoney(subtotalTwd)) : '') + '</span>' +
+            '<button class="ghost" data-action="edit-self" data-id="' + it.id + '">編輯</button>' +
+            '<button class="ghost del-btn" data-action="delete-self" data-id="' + it.id + '">刪除</button>' +
+          '</span></div>';
+      }).join("");
+      return '<div class="reminder-section">' +
+        '<div class="row" style="justify-content:space-between; margin-bottom:4px;">' +
+          '<b>' + (storeName ? escapeHtml(storeName) : "未填店名") + '</b>' +
+          '<span class="muted">小計 NT$ ' + fmtMoney(groupTwd) + '</span>' +
+        '</div>' +
+        rows +
+      '</div>';
     }).join("");
 
-    wrap.innerHTML =
-      '<table><thead><tr><th>商品</th><th class="num">單價</th><th class="num">數量</th><th class="num">台幣小計</th><th>狀態</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>';
+    wrap.innerHTML = sections;
 
     summary.innerHTML = '本行程自購總花費：<b style="color:var(--text)">NT$ ' + fmtMoney(totalTwd) + '</b>' +
+      '　<span class="muted">已購買 ' + purchasedCount + ' / ' + items.length + ' 項</span>' +
       (unpricedCount ? ('　<span class="muted">（' + unpricedCount + ' 項尚未輸入價格，未計入總額）</span>') : "");
   }
 
@@ -1466,6 +1503,7 @@
     } else if (action === "save-self-edit") {
       var editSelfItem = data.selfItems.find(function (it) { return it.id === id; });
       if (editSelfItem) {
+        var newSelfStore = document.getElementById("editStore_" + id).value.trim();
         var newItemName = document.getElementById("editItem_" + id).value.trim();
         var newSelfPriceRaw = document.getElementById("editPrice_" + id).value.trim();
         var newSelfPrice = newSelfPriceRaw === "" ? null : parseFloat(newSelfPriceRaw);
@@ -1482,6 +1520,7 @@
           alert("數量請輸入有效數字");
           return;
         }
+        editSelfItem.store = newSelfStore;
         editSelfItem.item = newItemName;
         editSelfItem.price = newSelfPrice;
         editSelfItem.qty = newSelfQty;
