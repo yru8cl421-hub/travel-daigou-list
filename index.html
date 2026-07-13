@@ -93,6 +93,24 @@
     padding: 16px;
     margin-bottom: 16px;
   }
+  .sticky-trip-bar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px 10px;
+    margin-bottom: 16px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+  }
+  .sticky-trip-bar select { flex: 0 1 220px; min-width: 120px; }
+  .sticky-trip-bar > button { padding: 8px 12px; min-height: 36px; flex-shrink: 0; }
+  .sticky-trip-bar .trip-meta { margin-top: 0; flex: 1 1 auto; }
   .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
   .row > * { min-width: 0; }
   label {
@@ -158,8 +176,6 @@
     background: var(--primary-dim);
   }
   .field { flex: 1; }
-  .trip-select-row { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
-  .trip-select-row .field { flex: 2; min-width: 160px; }
   .badge {
     display: inline-block;
     padding: 2px 8px;
@@ -188,18 +204,20 @@
   }
   .trip-meta {
     display: flex;
-    gap: 20px;
+    align-items: center;
     flex-wrap: wrap;
+    gap: 6px 16px;
     margin-top: 8px;
+    font-size: 13px;
   }
-  .trip-meta .item { font-size: 13px; }
-  .trip-meta .item b { display: block; font-size: 16px; color: var(--text); }
+  .trip-meta .tm-piece { white-space: nowrap; }
+  .trip-meta b { font-size: 14px; color: var(--text); }
+  .trip-meta input { width: auto; padding: 6px 8px; }
+  .trip-meta button { padding: 6px 10px; min-height: 32px; }
   .add-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 14px; }
   .add-form .field { min-width: 110px; }
   .add-form .field.grow { flex: 2; min-width: 160px; }
   .link-cell a { color: var(--primary); font-size: 12px; }
-  .rate-box { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
-  .rate-box .field { max-width: 140px; }
   .reminder-group { margin-bottom: 20px; }
   .reminder-group h3 { font-size: 15px; margin: 0 0 8px; display: flex; align-items: center; gap: 8px; }
   .reminder-section {
@@ -335,10 +353,6 @@
     .card { padding: 12px; }
     .add-form .field { flex: 1 1 100%; }
     .add-form > button { flex: 1 1 100%; }
-    .trip-select-row .field { flex: 1 1 100%; }
-    .trip-select-row > button { flex: 1 1 auto; }
-    .rate-box .field { max-width: none; flex: 1 1 100%; }
-    .rate-box > button { flex: 1 1 auto; }
     input, select, button { font-size: 16px; }
     .tab-btn { padding: 10px 12px; font-size: 13px; }
     .card .row > .field[style*="max-width"] { max-width: none !important; flex: 1 1 100%; }
@@ -355,19 +369,13 @@
 <div class="wrap">
   <h1>🧳 旅遊代購與購物清單</h1>
 
-  <div class="card">
-    <h2>行程</h2>
-    <div class="trip-select-row">
-      <div class="field">
-        <label>選擇行程</label>
-        <select id="tripSelect"></select>
-      </div>
-      <button class="secondary" id="btnNewTrip">＋ 新增行程</button>
-      <button class="secondary" id="btnEditTrip">編輯</button>
-      <button class="danger" id="btnDeleteTrip">刪除</button>
-    </div>
-    <div id="tripMeta" class="trip-meta"></div>
-    <div id="tripEmpty" class="empty" style="display:none;">目前沒有行程，請先新增一個行程。</div>
+  <div class="sticky-trip-bar">
+    <select id="tripSelect"></select>
+    <button class="secondary" id="btnNewTrip" title="新增行程">＋</button>
+    <button class="secondary" id="btnEditTrip" title="編輯">✏️</button>
+    <button class="danger" id="btnDeleteTrip" title="刪除">🗑️</button>
+    <span id="tripMeta" class="trip-meta"></span>
+    <span id="tripEmpty" class="muted" style="display:none;">目前沒有行程，請先新增一個行程。</span>
   </div>
 
   <div id="tripForm" class="card" style="display:none;">
@@ -824,18 +832,16 @@
     var dText = trip.departureDate ? (d > 0 ? ("還有 " + d + " 天") : (d === 0 ? "今天出發！" : "已出發")) : "未設定";
 
     box.innerHTML =
-      '<div class="item"><label>目的地</label><b>' + escapeHtml(trip.country) + '</b></div>' +
-      '<div class="item"><label>出發日期</label><b>' + (trip.departureDate ? escapeHtml(trip.departureDate) : "—") + '</b><span class="muted">' + dText + '</span></div>' +
-      '<div class="item"><label>匯率</label><b>' + rateText + '</b><span class="muted">更新於 ' + rateUpdated + (trip.rateSource === "cache" ? "（快取）" : "") + '</span></div>' +
-      '<div class="item rate-box">' +
-        (state.showManualRate
-          ? '<div class="field"><label>手動匯率</label><input type="number" step="0.0001" min="0" id="manualRateInput" value="' + (trip.exchangeRate || "") + '"></div>' +
-            '<button class="secondary" id="btnManualRate">套用</button>' +
-            '<button class="ghost" id="btnCancelManualRate">取消</button>'
-          : '<button class="ghost" id="btnToggleManualRate">✏️ 手動輸入匯率</button>'
-        ) +
-        '<button class="secondary" id="btnRefreshRate">🔄 重新抓取</button>' +
-      '</div>';
+      '<span class="tm-piece"><span class="muted">目的地</span> <b>' + escapeHtml(trip.country) + '</b></span>' +
+      '<span class="tm-piece"><span class="muted">出發</span> <b>' + (trip.departureDate ? escapeHtml(trip.departureDate) : "—") + '</b> <span class="muted">' + dText + '</span></span>' +
+      '<span class="tm-piece"><span class="muted">匯率</span> <b>' + rateText + '</b> <span class="muted">' + rateUpdated + (trip.rateSource === "cache" ? "（快取）" : "") + '</span></span>' +
+      (state.showManualRate
+        ? '<input type="number" step="0.0001" min="0" id="manualRateInput" value="' + (trip.exchangeRate || "") + '" placeholder="手動匯率" style="max-width:110px;">' +
+          '<button class="secondary" id="btnManualRate">套用</button>' +
+          '<button class="ghost" id="btnCancelManualRate">取消</button>'
+        : '<button class="ghost" id="btnToggleManualRate">✏️ 手動輸入匯率</button>'
+      ) +
+      '<button class="secondary" id="btnRefreshRate">🔄 重新抓取</button>';
 
     if (state.showManualRate) {
       document.getElementById("btnManualRate").onclick = function () {
