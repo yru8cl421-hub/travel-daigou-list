@@ -514,8 +514,8 @@
           </select>
         </div>
         <div class="field">
-          <label>價錢（原幣）</label>
-          <input id="fd_price" type="number" min="0" step="0.01" placeholder="0">
+          <label>價錢（原幣，選填）</label>
+          <input id="fd_price" type="number" min="0" step="0.01" placeholder="待輸入">
         </div>
         <button id="btnAddFood">新增</button>
       </div>
@@ -543,7 +543,8 @@
     activeTab: "packing",
     editingTripId: null,
     editingDaigouId: null,
-    editingSelfId: null
+    editingSelfId: null,
+    editingFoodId: null
   };
 
   function loadData() {
@@ -1083,14 +1084,15 @@
     var store = document.getElementById("fd_store").value.trim();
     var item = document.getElementById("fd_item").value.trim();
     var type = document.getElementById("fd_type").value;
-    var price = parseFloat(document.getElementById("fd_price").value);
+    var priceRaw = document.getElementById("fd_price").value.trim();
+    var price = priceRaw === "" ? null : parseFloat(priceRaw);
 
     if (!item) {
       alert("請填寫品項");
       return;
     }
-    if (isNaN(price) || price < 0) {
-      alert("請輸入有效的價錢");
+    if (price !== null && (isNaN(price) || price < 0)) {
+      alert("價錢請輸入有效數字，或留空待輸入");
       return;
     }
 
@@ -1140,6 +1142,7 @@
     var totalTwd = 0;
     var restaurantTwd = 0;
     var conbiniTwd = 0;
+    var unpricedCount = 0;
 
     var groupOrder = [];
     var groups = {};
@@ -1153,14 +1156,36 @@
       var groupItems = groups[storeName];
       var groupTwd = 0;
       var rows = groupItems.map(function (it) {
-        var subtotalTwd = it.price * rate;
-        totalTwd += subtotalTwd;
-        groupTwd += subtotalTwd;
-        if (it.type === "conbini") conbiniTwd += subtotalTwd; else restaurantTwd += subtotalTwd;
+        if (it.id === state.editingFoodId) {
+          return '<div class="reminder-item">' +
+            '<div class="row" style="gap:10px; align-items:flex-end; width:100%;">' +
+              '<div class="field grow"><label>店名</label><input id="editStore_' + it.id + '" value="' + escapeHtml(it.store || "") + '"></div>' +
+              '<div class="field grow"><label>品項</label><input id="editItem_' + it.id + '" value="' + escapeHtml(it.item) + '"></div>' +
+              '<div class="field" style="max-width:130px;"><label>類型</label><select id="editType_' + it.id + '">' +
+                '<option value="restaurant"' + (it.type !== "conbini" ? " selected" : "") + '>🍽️ 餐廳</option>' +
+                '<option value="conbini"' + (it.type === "conbini" ? " selected" : "") + '>🏪 超商</option>' +
+              '</select></div>' +
+              '<div class="field" style="max-width:130px;"><label>價錢（' + escapeHtml(trip.currency) + '，選填）</label><input type="number" min="0" step="0.01" id="editPrice_' + it.id + '" value="' + (it.price !== null && it.price !== undefined ? it.price : "") + '" placeholder="待輸入"></div>' +
+              '<button data-action="save-food-edit" data-id="' + it.id + '">儲存</button>' +
+              '<button class="ghost" data-action="cancel-food-edit" data-id="' + it.id + '">取消</button>' +
+            '</div>' +
+          '</div>';
+        }
+        var hasPrice = it.price !== null && it.price !== undefined && !isNaN(it.price);
+        var subtotalTwd = hasPrice ? it.price * rate : 0;
+        if (hasPrice) {
+          totalTwd += subtotalTwd;
+          groupTwd += subtotalTwd;
+          if (it.type === "conbini") conbiniTwd += subtotalTwd; else restaurantTwd += subtotalTwd;
+        } else {
+          unpricedCount++;
+        }
         return '<div class="reminder-item"><span class="name">' +
           '<span class="tag">' + (FOOD_TYPE_LABEL[it.type] || FOOD_TYPE_LABEL.restaurant) + '</span>' + escapeHtml(it.item) +
+          (!hasPrice ? ' <span class="badge warn">待輸入價格</span>' : "") +
           '</span><span class="row" style="gap:10px;">' +
-            '<span class="muted">' + it.price.toLocaleString("zh-TW") + ' ' + trip.currency + '　NT$ ' + fmtMoney(subtotalTwd) + '</span>' +
+            '<span class="muted">' + (hasPrice ? (it.price.toLocaleString("zh-TW") + ' ' + trip.currency + '　NT$ ' + fmtMoney(subtotalTwd)) : "") + '</span>' +
+            '<button class="ghost" data-action="edit-food" data-id="' + it.id + '">編輯</button>' +
             '<button class="ghost del-btn" data-action="delete-food" data-id="' + it.id + '">刪除</button>' +
           '</span></div>';
       }).join("");
@@ -1176,7 +1201,8 @@
     wrap.innerHTML = sections;
 
     summary.innerHTML = '本行程餐飲總花費：<b style="color:var(--text)">NT$ ' + fmtMoney(totalTwd) + '</b>' +
-      '　<span class="muted">（🍽️ 餐廳 NT$ ' + fmtMoney(restaurantTwd) + '　🏪 超商 NT$ ' + fmtMoney(conbiniTwd) + '）</span>';
+      '　<span class="muted">（🍽️ 餐廳 NT$ ' + fmtMoney(restaurantTwd) + '　🏪 超商 NT$ ' + fmtMoney(conbiniTwd) + '）</span>' +
+      (unpricedCount ? ('　<span class="muted">（' + unpricedCount + ' 項尚未輸入價格，未計入總額）</span>') : "");
   }
 
   // ---------- 攜帶清單 ----------
@@ -1460,6 +1486,35 @@
         editSelfItem.price = newSelfPrice;
         editSelfItem.qty = newSelfQty;
         state.editingSelfId = null;
+        saveData(); renderAll();
+      }
+    } else if (action === "edit-food") {
+      state.editingFoodId = id;
+      renderAll();
+    } else if (action === "cancel-food-edit") {
+      state.editingFoodId = null;
+      renderAll();
+    } else if (action === "save-food-edit") {
+      var editFoodItem = data.foodItems.find(function (it) { return it.id === id; });
+      if (editFoodItem) {
+        var newStore = document.getElementById("editStore_" + id).value.trim();
+        var newFoodItemName = document.getElementById("editItem_" + id).value.trim();
+        var newFoodType = document.getElementById("editType_" + id).value;
+        var newFoodPriceRaw = document.getElementById("editPrice_" + id).value.trim();
+        var newFoodPrice = newFoodPriceRaw === "" ? null : parseFloat(newFoodPriceRaw);
+        if (!newFoodItemName) {
+          alert("請填寫品項");
+          return;
+        }
+        if (newFoodPrice !== null && (isNaN(newFoodPrice) || newFoodPrice < 0)) {
+          alert("價錢請輸入有效數字，或留空待輸入");
+          return;
+        }
+        editFoodItem.store = newStore;
+        editFoodItem.item = newFoodItemName;
+        editFoodItem.type = newFoodType;
+        editFoodItem.price = newFoodPrice;
+        state.editingFoodId = null;
         saveData(); renderAll();
       }
     }
