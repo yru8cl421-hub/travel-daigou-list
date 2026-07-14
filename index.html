@@ -94,9 +94,6 @@
     margin-bottom: 16px;
   }
   .sticky-trip-bar {
-    position: sticky;
-    top: 0;
-    z-index: 50;
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
@@ -106,7 +103,6 @@
     border-radius: var(--radius);
     padding: 8px 10px;
     margin-bottom: 16px;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
   }
   .sticky-trip-bar select { flex: 0 1 220px; min-width: 120px; }
   .sticky-trip-bar > button { padding: 8px 12px; min-height: 36px; flex-shrink: 0; }
@@ -186,7 +182,7 @@
   .badge.success { background: var(--success-dim); color: var(--success); }
   .badge.warn { background: var(--warn-dim); color: var(--warn); }
   .badge.danger { background: var(--danger-dim); color: var(--danger); }
-  #daigouTableWrap, #selfTableWrap {
+  #daigouTableWrap {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
@@ -239,7 +235,7 @@
   .reminder-item .name { display: flex; align-items: center; gap: 8px; }
   .purchased-row {
     display: grid;
-    grid-template-columns: 50px minmax(70px, 1fr) 90px 100px 84px 84px 64px 110px auto;
+    grid-template-columns: 50px minmax(70px, 1fr) 100px 84px 84px 64px 110px auto;
     align-items: center;
     column-gap: 10px;
     padding: 8px 4px;
@@ -251,13 +247,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-  .purchased-row .store-cell {
-    white-space: nowrap;
-    color: var(--text-dim);
-    font-size: 13px;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
   .purchased-row .client-cell {
     white-space: nowrap;
@@ -292,7 +281,6 @@
       row-gap: 6px;
     }
     .purchased-row .item-cell,
-    .purchased-row .store-cell,
     .purchased-row .client-cell {
       grid-column: 1 / -1;
       white-space: normal;
@@ -367,9 +355,12 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>🧳 旅遊代購與購物清單</h1>
+  <div class="row" style="justify-content:space-between; align-items:center;">
+    <h1>🧳 旅遊代購與購物清單</h1>
+    <button id="btnExpandTripBar" class="secondary" style="display:none;" title="展開行程選擇">＋</button>
+  </div>
 
-  <div class="sticky-trip-bar">
+  <div class="sticky-trip-bar" id="stickyTripBar">
     <select id="tripSelect"></select>
     <button class="secondary" id="btnNewTrip" title="新增行程">＋</button>
     <button class="secondary" id="btnEditTrip" title="編輯">✏️</button>
@@ -429,8 +420,7 @@
   <div class="tabs">
     <button class="tab-btn active" data-tab="packing">🎒 攜帶清單</button>
     <button class="tab-btn" data-tab="itinerary">🗓️ 行程安排</button>
-    <button class="tab-btn" data-tab="daigou">🛍️ 代購清單</button>
-    <button class="tab-btn" data-tab="self">🛒 自己購買清單</button>
+    <button class="tab-btn" data-tab="daigou">🛍️ 購買清單</button>
     <button class="tab-btn" data-tab="reminder">🔔 購買提醒</button>
     <button class="tab-btn" data-tab="food">🍽️ 餐廳&超商美食</button>
   </div>
@@ -482,39 +472,40 @@
     <div id="itineraryContent"></div>
   </div>
 
-  <!-- 代購清單 -->
+  <!-- 購買清單（代購＋自購合併） -->
   <div id="tab-daigou" class="tab-panel" style="display:none;">
     <div class="card">
-      <h2>新增代購項目</h2>
-      <div class="muted" style="margin-bottom:10px;">先輸入要買什麼，單價到「🔔 購買提醒」現場購買時再輸入</div>
+      <h2>新增購買項目</h2>
+      <div class="muted" style="margin-bottom:10px;">先輸入要買什麼，單價到「🔔 購買提醒」現場購買時再輸入。委託人留空即代表自己買</div>
       <div class="add-form">
         <div class="field grow">
-          <label>委託人/客戶</label>
-          <input id="d_client" placeholder="姓名">
+          <label>委託人（選填，留空＝自己買）</label>
+          <input id="pu_client" list="pu_clientList" placeholder="姓名，留空表示自己買">
+          <datalist id="pu_clientList"></datalist>
         </div>
         <div class="field grow">
           <label>店名（選填）</label>
-          <input id="d_store" list="d_storeList" placeholder="例如：GU">
+          <input id="pu_store" list="d_storeList" placeholder="例如：GU">
           <datalist id="d_storeList"></datalist>
         </div>
         <div class="field grow">
           <label>商品名稱</label>
-          <input id="d_item" placeholder="商品名稱">
+          <input id="pu_item" placeholder="商品名稱">
         </div>
         <div class="field">
           <label>數量</label>
-          <input id="d_qty" type="number" min="1" step="1" value="1">
+          <input id="pu_qty" type="number" min="1" step="1" value="1">
         </div>
-        <div class="field">
+        <div class="field" id="pu_feeWrap" style="display:none;">
           <label>代購費(台幣)</label>
-          <input id="d_fee" type="number" min="0" step="1" placeholder="0">
+          <input id="pu_fee" type="number" min="0" step="1" placeholder="0">
         </div>
         <button id="btnAddDaigou">新增</button>
       </div>
     </div>
     <div class="card">
       <div class="row" style="justify-content:space-between;">
-        <h2 style="margin:0;">代購明細</h2>
+        <h2 style="margin:0;">購買明細</h2>
         <div class="field" style="max-width:240px;">
           <label>依委託人查詢（跨所有行程）</label>
           <select id="d_clientFilter">
@@ -524,35 +515,6 @@
       </div>
       <div id="daigouTableWrap"></div>
       <div id="daigouSummary" class="status-line"></div>
-    </div>
-  </div>
-
-  <!-- 自己購買清單 -->
-  <div id="tab-self" class="tab-panel" style="display:none;">
-    <div class="card">
-      <h2>新增自購項目</h2>
-      <div class="muted" style="margin-bottom:10px;">先輸入要買什麼，單價到「🔔 購買提醒」現場購買時再輸入</div>
-      <div class="add-form">
-        <div class="field grow">
-          <label>店名（選填）</label>
-          <input id="s_store" list="s_storeList" placeholder="例如：唐吉訶德">
-          <datalist id="s_storeList"></datalist>
-        </div>
-        <div class="field grow">
-          <label>商品名稱</label>
-          <input id="s_item" placeholder="商品名稱">
-        </div>
-        <div class="field">
-          <label>數量</label>
-          <input id="s_qty" type="number" min="1" step="1" value="1">
-        </div>
-        <button id="btnAddSelf">新增</button>
-      </div>
-    </div>
-    <div class="card">
-      <h2>自購明細</h2>
-      <div id="selfTableWrap"></div>
-      <div id="selfSummary" class="status-line"></div>
     </div>
   </div>
 
@@ -585,13 +547,6 @@
         <div class="field grow">
           <label>品項</label>
           <input id="fd_item" placeholder="例如：拉麵、飯糰">
-        </div>
-        <div class="field">
-          <label>類型</label>
-          <select id="fd_type">
-            <option value="restaurant">🍽️ 餐廳</option>
-            <option value="conbini">🏪 超商</option>
-          </select>
         </div>
         <div class="field">
           <label>價錢（原幣，選填）</label>
@@ -630,19 +585,20 @@
   var STORAGE_KEY = "travel_shopping_data_v1";
   var RATE_CACHE_KEY_PREFIX = "travel_rate_cache_";
 
-  /** @type {{trips: any[], daigouItems: any[], selfItems: any[]}} */
+  /** @type {{trips: any[], daigouItems: any[]}} */
   var data = loadData();
   var state = {
     currentTripId: data.trips.length ? data.trips[0].id : null,
     activeTab: "packing",
     editingTripId: null,
     editingDaigouId: null,
-    editingSelfId: null,
     editingFoodId: null,
     editingItineraryId: null,
     storeModalTarget: null,
     itineraryStoreSelections: {},
-    showManualRate: false
+    showManualRate: false,
+    tripBarCollapsed: false,
+    tripBarInteracted: false
   };
 
   function loadData() {
@@ -652,16 +608,26 @@
         var parsed = JSON.parse(raw);
         parsed.trips = parsed.trips || [];
         parsed.daigouItems = parsed.daigouItems || [];
-        parsed.selfItems = parsed.selfItems || [];
         parsed.packingItems = parsed.packingItems || [];
         parsed.foodItems = parsed.foodItems || [];
         parsed.itineraryItems = parsed.itineraryItems || [];
+        if (parsed.selfItems && parsed.selfItems.length) {
+          parsed.daigouItems = parsed.daigouItems.concat(parsed.selfItems.map(function (it) {
+            return {
+              id: it.id, tripId: it.tripId, client: "", store: it.store || "",
+              item: it.item, price: it.price, qty: it.qty, fee: 0,
+              purchased: !!it.purchased, delivered: !!it.purchased, paid: !!it.purchased,
+              createdAt: it.createdAt
+            };
+          }));
+        }
+        delete parsed.selfItems;
         return parsed;
       }
     } catch (e) {
       console.warn("讀取本機資料失敗，將重新初始化", e);
     }
-    return { trips: [], daigouItems: [], selfItems: [], packingItems: [], foodItems: [], itineraryItems: [] };
+    return { trips: [], daigouItems: [], packingItems: [], foodItems: [], itineraryItems: [] };
   }
 
   function saveData() {
@@ -821,6 +787,11 @@
     return (d.getMonth() + 1) + "/" + d.getDate() + "（週" + WEEKDAY_LABELS[d.getDay()] + "）";
   }
 
+  function renderTripBarVisibility() {
+    document.getElementById("stickyTripBar").style.display = state.tripBarCollapsed ? "none" : "flex";
+    document.getElementById("btnExpandTripBar").style.display = state.tripBarCollapsed ? "inline-block" : "none";
+  }
+
   function renderTripMeta() {
     var box = document.getElementById("tripMeta");
     var trip = getTrip(state.currentTripId);
@@ -975,10 +946,9 @@
   function deleteCurrentTrip() {
     var trip = getTrip(state.currentTripId);
     if (!trip) return;
-    if (!confirm('確定要刪除行程「' + trip.name + '」嗎？此行程底下的代購、自購、攜帶清單、餐飲紀錄與行程安排也會一併刪除，此動作無法復原。')) return;
+    if (!confirm('確定要刪除行程「' + trip.name + '」嗎？此行程底下的購買清單、攜帶清單、餐飲紀錄與行程安排也會一併刪除，此動作無法復原。')) return;
     data.trips = data.trips.filter(function (t) { return t.id !== trip.id; });
     data.daigouItems = data.daigouItems.filter(function (it) { return it.tripId !== trip.id; });
-    data.selfItems = data.selfItems.filter(function (it) { return it.tripId !== trip.id; });
     data.packingItems = data.packingItems.filter(function (it) { return it.tripId !== trip.id; });
     data.foodItems = data.foodItems.filter(function (it) { return it.tripId !== trip.id; });
     data.itineraryItems = data.itineraryItems.filter(function (it) { return it.tripId !== trip.id; });
@@ -988,14 +958,19 @@
   }
 
   // ---------- 代購清單 ----------
-  function addDaigouItem() {
+  function updateFeeWrapVisibility() {
+    var hasClient = document.getElementById("pu_client").value.trim() !== "";
+    document.getElementById("pu_feeWrap").style.display = hasClient ? "block" : "none";
+  }
+
+  function addPurchaseItem() {
     var trip = getTrip(state.currentTripId);
     if (!trip) { alert("請先建立行程"); return; }
-    var client = document.getElementById("d_client").value.trim();
-    var store = document.getElementById("d_store").value.trim();
-    var item = document.getElementById("d_item").value.trim();
-    var qty = parseInt(document.getElementById("d_qty").value, 10) || 1;
-    var fee = parseFloat(document.getElementById("d_fee").value) || 0;
+    var client = document.getElementById("pu_client").value.trim();
+    var store = document.getElementById("pu_store").value.trim();
+    var item = document.getElementById("pu_item").value.trim();
+    var qty = parseInt(document.getElementById("pu_qty").value, 10) || 1;
+    var fee = client ? (parseFloat(document.getElementById("pu_fee").value) || 0) : 0;
 
     if (!item) {
       alert("請填寫商品名稱");
@@ -1018,11 +993,12 @@
     });
     saveData();
 
-    document.getElementById("d_client").value = "";
-    document.getElementById("d_store").value = "";
-    document.getElementById("d_item").value = "";
-    document.getElementById("d_qty").value = "1";
-    document.getElementById("d_fee").value = "";
+    document.getElementById("pu_client").value = "";
+    document.getElementById("pu_store").value = "";
+    document.getElementById("pu_item").value = "";
+    document.getElementById("pu_qty").value = "1";
+    document.getElementById("pu_fee").value = "";
+    updateFeeWrapVisibility();
 
     renderAll();
   }
@@ -1036,11 +1012,16 @@
   function renderClientFilterOptions() {
     var clients = getDistinctClients();
 
+    document.getElementById("pu_clientList").innerHTML =
+      clients.map(function (c) { return '<option value="' + escapeHtml(c) + '">'; }).join("");
+
     var sel = document.getElementById("d_clientFilter");
     var prevValue = sel.value;
+    var dSpecialValues = ["__self__"];
     sel.innerHTML = '<option value="">本行程全部項目</option>' +
+      '<option value="__self__">自己買</option>' +
       clients.map(function (c) { return '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '（跨行程）</option>'; }).join("");
-    if (clients.indexOf(prevValue) !== -1) sel.value = prevValue;
+    if (clients.indexOf(prevValue) !== -1 || dSpecialValues.indexOf(prevValue) !== -1) sel.value = prevValue;
 
     var rmSel = document.getElementById("rm_clientFilter");
     var rmPrevValue = rmSel.value;
@@ -1082,7 +1063,7 @@
       receivable: receivable,
       hasPrice: hasPrice,
       html: '<tr>' +
-        '<td>' + escapeHtml(it.client || "—") + '</td>' +
+        '<td>' + (it.client ? escapeHtml(it.client) : '<span class="muted">自己</span>') + '</td>' +
         (showTripColumn ? '<td>' + escapeHtml(trip ? trip.name : "—") + '</td>' : "") +
         '<td>' + (it.store ? escapeHtml(it.store) : '<span class="muted">—</span>') + '</td>' +
         '<td>' + escapeHtml(it.item) +
@@ -1092,6 +1073,7 @@
         '<td class="num">' + (hasPrice ? ('NT$ ' + fmtMoney(subtotalTwd)) : '—') + '</td>' +
         '<td class="num">NT$ ' + fmtMoney(it.fee) + '</td>' +
         '<td class="num">' + (hasPrice ? ('<b>NT$ ' + fmtMoney(receivable) + '</b>') : '—') + '</td>' +
+        '<td>' + (it.purchased ? '<span class="badge success">已購買</span>' : '<span class="badge warn">尚未購買</span>') + '</td>' +
         '<td class="row" style="gap:4px; flex-wrap:nowrap;">' +
           '<button class="ghost" data-action="edit-daigou" data-id="' + it.id + '">編輯</button>' +
           '<button class="ghost del-btn" data-action="delete-daigou" data-id="' + it.id + '">刪除</button>' +
@@ -1117,7 +1099,13 @@
 
     var items, showTripColumn, summaryLabel;
 
-    if (clientFilter) {
+    if (clientFilter === "__self__") {
+      var selfTrip = getTrip(state.currentTripId);
+      if (!selfTrip) { wrap.innerHTML = '<div class="empty">請先建立行程</div>'; summary.textContent = ""; return; }
+      items = data.daigouItems.filter(function (it) { return it.tripId === selfTrip.id && !it.client; });
+      showTripColumn = false;
+      summaryLabel = "本行程自己買總花費：";
+    } else if (clientFilter) {
       items = data.daigouItems.filter(function (it) { return it.client === clientFilter; });
       showTripColumn = true;
       summaryLabel = '「' + clientFilter + '」跨所有行程應收總額：';
@@ -1126,159 +1114,50 @@
       if (!trip) { wrap.innerHTML = '<div class="empty">請先建立行程</div>'; summary.textContent = ""; return; }
       items = data.daigouItems.filter(function (it) { return it.tripId === trip.id; });
       showTripColumn = false;
-      summaryLabel = "本行程代購應收總額：";
+      summaryLabel = "本行程購買總花費：";
     }
 
     if (!items.length) {
-      wrap.innerHTML = '<div class="empty">' + (clientFilter ? "找不到這位委託人的項目" : "尚未新增代購項目") + '</div>';
+      wrap.innerHTML = '<div class="empty">' + (clientFilter ? "找不到符合條件的項目" : "尚未新增購買項目") + '</div>';
       summary.textContent = "";
       return;
     }
 
+    var sortByNewest = function (a, b) { return (b.createdAt || "").localeCompare(a.createdAt || ""); };
+    var toBuyItems = items.filter(function (it) { return !it.purchased; }).sort(sortByNewest);
+    var purchasedItems = items.filter(function (it) { return it.purchased; }).sort(sortByNewest);
+
     var totalReceivable = 0;
     var unpricedCount = 0;
-    var rows = items.map(function (it) {
-      var itTrip = getTrip(it.tripId);
-      var built = buildDaigouRow(it, itTrip, showTripColumn, it.id === state.editingDaigouId);
-      totalReceivable += built.receivable;
-      if (!built.hasPrice) unpricedCount++;
-      return built.html;
-    }).join("");
+    function buildRows(list) {
+      return list.map(function (it) {
+        var itTrip = getTrip(it.tripId);
+        var built = buildDaigouRow(it, itTrip, showTripColumn, it.id === state.editingDaigouId);
+        totalReceivable += built.receivable;
+        if (!built.hasPrice) unpricedCount++;
+        return built.html;
+      }).join("");
+    }
+    var rows = buildRows(toBuyItems) +
+      (purchasedItems.length ? '<tr><td colspan="100%" style="background:var(--bg); font-weight:600; color:var(--text-dim);">已購買</td></tr>' : "") +
+      buildRows(purchasedItems);
 
     wrap.innerHTML =
       '<table><thead><tr>' +
       '<th>委託人</th>' + (showTripColumn ? "<th>行程</th>" : "") + '<th>店名</th><th>商品</th><th class="num">數量</th>' +
-      '<th class="num">台幣小計</th><th class="num">代購費</th><th class="num">應收總額</th><th></th>' +
+      '<th class="num">台幣小計</th><th class="num">代購費</th><th class="num">應收總額</th><th>狀態</th><th></th>' +
       '</tr></thead><tbody>' + rows + '</tbody></table>';
 
     summary.innerHTML = summaryLabel + '<b style="color:var(--text)">NT$ ' + fmtMoney(totalReceivable) + '</b>' +
       (unpricedCount ? ('　<span class="muted">（' + unpricedCount + ' 項尚未輸入價格，未計入總額）</span>') : "");
   }
 
-  // ---------- 自己買清單 ----------
-  function addSelfItem() {
-    var trip = getTrip(state.currentTripId);
-    if (!trip) { alert("請先建立行程"); return; }
-    var store = document.getElementById("s_store").value.trim();
-    var item = document.getElementById("s_item").value.trim();
-    var qty = parseInt(document.getElementById("s_qty").value, 10) || 1;
-
-    if (!item) {
-      alert("請填寫商品名稱");
-      return;
-    }
-
-    data.selfItems.push({
-      id: uid(),
-      tripId: trip.id,
-      store: store,
-      item: item,
-      price: null,
-      qty: qty,
-      purchased: false,
-      createdAt: new Date().toISOString()
-    });
-    saveData();
-
-    document.getElementById("s_store").value = "";
-    document.getElementById("s_item").value = "";
-    document.getElementById("s_qty").value = "1";
-
-    renderAll();
-  }
-
-  function renderSelfTable() {
-    var wrap = document.getElementById("selfTableWrap");
-    var summary = document.getElementById("selfSummary");
-    var trip = getTrip(state.currentTripId);
-    if (!trip) {
-      wrap.innerHTML = '<div class="empty">請先建立行程</div>';
-      summary.textContent = "";
-      document.getElementById("s_storeList").innerHTML = "";
-      return;
-    }
-
-    var items = data.selfItems.filter(function (it) { return it.tripId === trip.id; });
-
-    var storeNames = Array.from(new Set(items.map(function (it) { return it.store; }).filter(function (s) { return s; })))
-      .sort(function (a, b) { return a.localeCompare(b, "zh-Hant"); });
-    document.getElementById("s_storeList").innerHTML =
-      storeNames.map(function (s) { return '<option value="' + escapeHtml(s) + '">'; }).join("");
-
-    if (!items.length) {
-      wrap.innerHTML = '<div class="empty">尚未新增自購項目</div>';
-      summary.textContent = "";
-      return;
-    }
-
-    var rate = trip.exchangeRate || 0;
-    var totalTwd = 0;
-    var unpricedCount = 0;
-    var purchasedCount = 0;
-
-    var groupOrder = [];
-    var groups = {};
-    items.forEach(function (it) {
-      var key = it.store || "";
-      if (!groups[key]) { groups[key] = []; groupOrder.push(key); }
-      groups[key].push(it);
-    });
-
-    var sections = groupOrder.map(function (storeName) {
-      var groupItems = groups[storeName];
-      var groupTwd = 0;
-      var rows = groupItems.map(function (it) {
-        if (it.purchased) purchasedCount++;
-        var hasPrice = it.price !== null && it.price !== undefined && !isNaN(it.price);
-        var subtotalTwd = hasPrice ? it.price * it.qty * rate : 0;
-        if (hasPrice) { totalTwd += subtotalTwd; groupTwd += subtotalTwd; } else { unpricedCount++; }
-
-        if (it.id === state.editingSelfId) {
-          return '<div class="reminder-item">' +
-            '<div class="row" style="gap:10px; align-items:flex-end; width:100%;">' +
-              '<div class="field grow"><label>店名</label><input id="editStore_' + it.id + '" value="' + escapeHtml(it.store || "") + '"></div>' +
-              '<div class="field grow"><label>商品名稱</label><input id="editItem_' + it.id + '" value="' + escapeHtml(it.item) + '"></div>' +
-              '<div class="field" style="max-width:150px;"><label>單價（' + escapeHtml(trip.currency) + '，選填）</label><input type="number" min="0" step="0.01" id="editPrice_' + it.id + '" value="' + (hasPrice ? it.price : "") + '" placeholder="輸入單價"></div>' +
-              '<div class="field" style="max-width:100px;"><label>數量</label><input type="number" min="1" step="1" id="editQty_' + it.id + '" value="' + it.qty + '"></div>' +
-              '<button data-action="save-self-edit" data-id="' + it.id + '">儲存</button>' +
-              '<button class="ghost" data-action="cancel-self-edit" data-id="' + it.id + '">取消</button>' +
-            '</div>' +
-          '</div>';
-        }
-        return '<div class="reminder-item"><span class="name">' +
-          escapeHtml(it.item) + (!hasPrice ? ' <span class="badge warn">待輸入價格</span>' : "") +
-          '</span><span class="row" style="gap:10px;">' +
-            (it.purchased ? '<span class="badge success">已購買</span>' : '<span class="badge warn">尚未購買</span>') +
-            '<span class="muted">數量 ' + it.qty + (hasPrice ? ('　' + it.price.toLocaleString("zh-TW") + ' ' + trip.currency + '　NT$ ' + fmtMoney(subtotalTwd)) : '') + '</span>' +
-            '<button class="ghost" data-action="edit-self" data-id="' + it.id + '">編輯</button>' +
-            '<button class="ghost del-btn" data-action="delete-self" data-id="' + it.id + '">刪除</button>' +
-          '</span></div>';
-      }).join("");
-      return '<div class="reminder-section">' +
-        '<div class="row" style="justify-content:space-between; margin-bottom:4px;">' +
-          '<b>' + (storeName ? escapeHtml(storeName) : "未填店名") + '</b>' +
-          '<span class="muted">小計 NT$ ' + fmtMoney(groupTwd) + '</span>' +
-        '</div>' +
-        rows +
-      '</div>';
-    }).join("");
-
-    wrap.innerHTML = sections;
-
-    summary.innerHTML = '本行程自購總花費：<b style="color:var(--text)">NT$ ' + fmtMoney(totalTwd) + '</b>' +
-      '　<span class="muted">已購買 ' + purchasedCount + ' / ' + items.length + ' 項</span>' +
-      (unpricedCount ? ('　<span class="muted">（' + unpricedCount + ' 項尚未輸入價格，未計入總額）</span>') : "");
-  }
-
   // ---------- 餐廳＆超商美食 ----------
-  var FOOD_TYPE_LABEL = { restaurant: "🍽️ 餐廳", conbini: "🏪 超商" };
-
   function addFoodItem() {
     var trip = getTrip(state.currentTripId);
     if (!trip) { alert("請先建立行程"); return; }
     var store = document.getElementById("fd_store").value.trim();
     var item = document.getElementById("fd_item").value.trim();
-    var type = document.getElementById("fd_type").value;
     var priceRaw = document.getElementById("fd_price").value.trim();
     var price = priceRaw === "" ? null : parseFloat(priceRaw);
 
@@ -1296,7 +1175,6 @@
       tripId: trip.id,
       store: store,
       item: item,
-      type: type,
       price: price,
       createdAt: new Date().toISOString()
     });
@@ -1335,8 +1213,6 @@
 
     var rate = trip.exchangeRate || 0;
     var totalTwd = 0;
-    var restaurantTwd = 0;
-    var conbiniTwd = 0;
     var unpricedCount = 0;
 
     var groupOrder = [];
@@ -1356,10 +1232,6 @@
             '<div class="row" style="gap:10px; align-items:flex-end; width:100%;">' +
               '<div class="field grow"><label>店名</label><input id="editStore_' + it.id + '" value="' + escapeHtml(it.store || "") + '"></div>' +
               '<div class="field grow"><label>品項</label><input id="editItem_' + it.id + '" value="' + escapeHtml(it.item) + '"></div>' +
-              '<div class="field" style="max-width:130px;"><label>類型</label><select id="editType_' + it.id + '">' +
-                '<option value="restaurant"' + (it.type !== "conbini" ? " selected" : "") + '>🍽️ 餐廳</option>' +
-                '<option value="conbini"' + (it.type === "conbini" ? " selected" : "") + '>🏪 超商</option>' +
-              '</select></div>' +
               '<div class="field" style="max-width:130px;"><label>價錢（' + escapeHtml(trip.currency) + '，選填）</label><input type="number" min="0" step="0.01" id="editPrice_' + it.id + '" value="' + (it.price !== null && it.price !== undefined ? it.price : "") + '" placeholder="待輸入"></div>' +
               '<button data-action="save-food-edit" data-id="' + it.id + '">儲存</button>' +
               '<button class="ghost" data-action="cancel-food-edit" data-id="' + it.id + '">取消</button>' +
@@ -1371,12 +1243,11 @@
         if (hasPrice) {
           totalTwd += subtotalTwd;
           groupTwd += subtotalTwd;
-          if (it.type === "conbini") conbiniTwd += subtotalTwd; else restaurantTwd += subtotalTwd;
         } else {
           unpricedCount++;
         }
         return '<div class="reminder-item"><span class="name">' +
-          '<span class="tag">' + (FOOD_TYPE_LABEL[it.type] || FOOD_TYPE_LABEL.restaurant) + '</span>' + escapeHtml(it.item) +
+          escapeHtml(it.item) +
           (!hasPrice ? ' <span class="badge warn">待輸入價格</span>' : "") +
           '</span><span class="row" style="gap:10px;">' +
             '<span class="muted">' + (hasPrice ? (it.price.toLocaleString("zh-TW") + ' ' + trip.currency + '　NT$ ' + fmtMoney(subtotalTwd)) : "") + '</span>' +
@@ -1396,7 +1267,6 @@
     wrap.innerHTML = sections;
 
     summary.innerHTML = '本行程餐飲總花費：<b style="color:var(--text)">NT$ ' + fmtMoney(totalTwd) + '</b>' +
-      '　<span class="muted">（🍽️ 餐廳 NT$ ' + fmtMoney(restaurantTwd) + '　🏪 超商 NT$ ' + fmtMoney(conbiniTwd) + '）</span>' +
       (unpricedCount ? ('　<span class="muted">（' + unpricedCount + ' 項尚未輸入價格，未計入總額）</span>') : "");
   }
 
@@ -1405,8 +1275,7 @@
     var trip = getTrip(state.currentTripId);
     if (!trip) return [];
     return Array.from(new Set(
-      data.selfItems.filter(function (i) { return i.tripId === trip.id; }).map(function (i) { return i.store; })
-        .concat(data.daigouItems.filter(function (i) { return i.tripId === trip.id; }).map(function (i) { return i.store; }))
+      data.daigouItems.filter(function (i) { return i.tripId === trip.id; }).map(function (i) { return i.store; })
         .concat(data.foodItems.filter(function (i) { return i.tripId === trip.id; }).map(function (i) { return i.store; }))
         .filter(function (s) { return s; })
     )).sort(function (a, b) { return a.localeCompare(b, "zh-Hant"); });
@@ -1495,27 +1364,31 @@
     function findRelatedReminders(it) {
       var stores = it.stores || [];
       if (!stores.length) return "";
-      var toBuySelf = data.selfItems.filter(function (si) {
-        return si.tripId === trip.id && !si.purchased && si.store && stores.indexOf(si.store) !== -1;
-      });
-      var toBuyDaigou = data.daigouItems.filter(function (di) {
-        return di.tripId === trip.id && !di.purchased && di.store && stores.indexOf(di.store) !== -1;
-      });
-      var foodHere = data.foodItems.filter(function (fi) {
-        return fi.tripId === trip.id && fi.store && stores.indexOf(fi.store) !== -1;
-      });
-      if (!toBuySelf.length && !toBuyDaigou.length && !foodHere.length) return "";
-      var lines = [];
-      if (toBuySelf.length) {
-        lines.push('🛒 別忘了買：' + toBuySelf.map(function (si) { return escapeHtml(si.item) + '（' + escapeHtml(si.store) + '）'; }).join('、'));
-      }
-      if (toBuyDaigou.length) {
-        lines.push('🛍️ 代購別忘了買：' + toBuyDaigou.map(function (di) { return escapeHtml(di.item) + '（' + escapeHtml(di.store) + (di.client ? '→' + escapeHtml(di.client) : '') + '）'; }).join('、'));
-      }
-      if (foodHere.length) {
-        lines.push('🍽️ 這裡的美食：' + foodHere.map(function (fi) { return escapeHtml(fi.item) + '（' + escapeHtml(fi.store) + '）'; }).join('、'));
-      }
-      return '<div class="reminder-section" style="margin-top:6px; padding:8px 10px;">' + lines.join('<br>') + '</div>';
+      var storeLines = stores.map(function (storeName) {
+        var selfHere = data.daigouItems.filter(function (si) {
+          return si.tripId === trip.id && !si.purchased && !si.client && si.store === storeName;
+        });
+        var daigouHere = data.daigouItems.filter(function (di) {
+          return di.tripId === trip.id && !di.purchased && di.client && di.store === storeName;
+        });
+        var foodHere = data.foodItems.filter(function (fi) {
+          return fi.tripId === trip.id && fi.store === storeName;
+        });
+        if (!selfHere.length && !daigouHere.length && !foodHere.length) return "";
+        var parts = [];
+        if (selfHere.length) {
+          parts.push('🛒 ' + selfHere.map(function (si) { return escapeHtml(si.item); }).join('、'));
+        }
+        if (daigouHere.length) {
+          parts.push('🛍️ ' + daigouHere.map(function (di) { return escapeHtml(di.item) + (di.client ? ('→' + escapeHtml(di.client)) : ''); }).join('、'));
+        }
+        if (foodHere.length) {
+          parts.push('🍽️ ' + foodHere.map(function (fi) { return escapeHtml(fi.item); }).join('、'));
+        }
+        return '<div>🏬 <b>' + escapeHtml(storeName) + '</b>：' + parts.join('　') + '</div>';
+      }).filter(function (s) { return s; }).join("");
+      if (!storeLines) return "";
+      return '<div class="reminder-section" style="margin-top:6px; padding:8px 10px;">' + storeLines + '</div>';
     }
 
     var dayOrder = [];
@@ -1634,30 +1507,26 @@
     });
 
     var groups = trips.map(function (trip) {
-      var toBuyDaigou = (statusFilter || selfOnly) ? [] : data.daigouItems.filter(function (it) {
-        return it.tripId === trip.id && !it.purchased && (!clientFilter || it.client === clientFilter);
-      });
-      var toBuySelf = (statusFilter || clientFilter) ? [] : data.selfItems.filter(function (it) {
-        return it.tripId === trip.id && !it.purchased;
-      });
-      var purchasedDaigou = selfOnly ? [] : data.daigouItems.filter(function (it) {
-        if (it.tripId !== trip.id || !it.purchased) return false;
-        if (statusFilter === "__undelivered__") return !it.delivered;
-        if (statusFilter === "__unpaid__") return !it.paid;
+      var toBuy = statusFilter ? [] : data.daigouItems.filter(function (it) {
+        if (it.tripId !== trip.id || it.purchased) return false;
+        if (selfOnly) return !it.client;
         return !clientFilter || it.client === clientFilter;
       });
-      var purchasedSelf = (statusFilter || clientFilter) ? [] : data.selfItems.filter(function (it) {
-        return it.tripId === trip.id && it.purchased;
+      var purchased = data.daigouItems.filter(function (it) {
+        if (it.tripId !== trip.id || !it.purchased) return false;
+        if (statusFilter === "__undelivered__") return it.client && !it.delivered;
+        if (statusFilter === "__unpaid__") return it.client && !it.paid;
+        if (selfOnly) return !it.client;
+        return !clientFilter || it.client === clientFilter;
       });
-      var count = toBuyDaigou.length + toBuySelf.length + purchasedDaigou.length + purchasedSelf.length;
+      var count = toBuy.length + purchased.length;
       var rate = trip.exchangeRate || 0;
-      var unpaidTotal = purchasedDaigou.filter(function (it) { return !it.paid; })
+      var unpaidTotal = purchased.filter(function (it) { return it.client && !it.paid; })
         .reduce(function (sum, it) { return sum + it.price * it.qty * rate + it.fee; }, 0);
-      var paidTotal = purchasedDaigou.filter(function (it) { return it.paid; })
+      var paidTotal = purchased.filter(function (it) { return it.client && it.paid; })
         .reduce(function (sum, it) { return sum + it.price * it.qty * rate + it.fee; }, 0);
       return {
-        trip: trip, toBuyDaigou: toBuyDaigou, toBuySelf: toBuySelf,
-        purchasedDaigou: purchasedDaigou, purchasedSelf: purchasedSelf,
+        trip: trip, toBuy: toBuy, purchased: purchased,
         unpaidTotal: unpaidTotal, paidTotal: paidTotal, count: count
       };
     }).filter(function (g) { return g.count > 0; });
@@ -1684,57 +1553,67 @@
       var rate = g.trip.exchangeRate || 0;
       var amt = function (it) { return "NT$ " + fmtMoney(it.price * it.qty * rate); };
 
-      var daigouRows = g.toBuyDaigou.map(function (it) {
+      function buildToBuyRow(it) {
         var priced = it.price !== null && it.price !== undefined && !isNaN(it.price);
         return '<div class="reminder-item"><span class="name">' +
           '<input type="checkbox" data-action="toggle-purchased" data-id="' + it.id + '"' + (priced ? "" : " disabled title=\"請先輸入價格\"") + '>' +
-          '<span class="tag">代購</span>' + escapeHtml(it.item) + (it.store ? ('　🏬 ' + escapeHtml(it.store)) : '') + (it.client ? ('　→ ' + escapeHtml(it.client)) : '') +
+          '<span class="tag">' + (it.client ? "代購" : "自購") + '</span>' + escapeHtml(it.item) + (it.client ? ('　→ ' + escapeHtml(it.client)) : '') +
           '</span><span class="row" style="gap:6px;">' +
           (priced
             ? '<span class="muted">數量 ' + it.qty + '　' + amt(it) + '</span>'
             : '<span class="muted">數量 ' + it.qty + '</span><input type="number" min="0" step="0.01" class="price-input" placeholder="輸入單價" data-action="update-daigou-price" data-id="' + it.id + '">') +
           '</span></div>';
-      }).join("");
+      }
 
-      var selfRows = g.toBuySelf.map(function (it) {
-        var priced = it.price !== null && it.price !== undefined && !isNaN(it.price);
+      function buildPurchasedRow(it) {
+        if (it.client) {
+          return '<div class="purchased-row">' +
+            '<span class="tag">代購</span>' +
+            '<span class="item-cell">' + escapeHtml(it.item) + '</span>' +
+            '<span class="client-cell">→ ' + escapeHtml(it.client) + '</span>' +
+            '<label><input type="checkbox" data-action="toggle-delivered" data-id="' + it.id + '"' + (it.delivered ? " checked" : "") + '> 已交付</label>' +
+            '<label><input type="checkbox" data-action="toggle-paid" data-id="' + it.id + '"' + (it.paid ? " checked" : "") + '> 已收款</label>' +
+            '<span class="qty-cell">數量 ' + it.qty + '</span>' +
+            '<span class="amt-cell">' + amt(it) + '</span>' +
+            '<button class="ghost revert-btn" data-action="revert-purchased" data-id="' + it.id + '">↩ 退回尚未購買</button>' +
+          '</div>';
+        }
         return '<div class="reminder-item"><span class="name">' +
-          '<input type="checkbox" data-action="toggle-self-purchased" data-id="' + it.id + '"' + (priced ? "" : " disabled title=\"請先輸入價格\"") + '>' +
-          '<span class="tag">自購</span>' + escapeHtml(it.item) +
-          '</span><span class="row" style="gap:6px;">' +
-          (priced
-            ? '<span class="muted">數量 ' + it.qty + '　' + amt(it) + '</span>'
-            : '<span class="muted">數量 ' + it.qty + '</span><input type="number" min="0" step="0.01" class="price-input" placeholder="輸入單價" data-action="update-self-price" data-id="' + it.id + '">') +
-          '</span></div>';
-      }).join("");
-
-      var purchasedDaigouRows = g.purchasedDaigou.map(function (it) {
-        return '<div class="purchased-row">' +
-          '<span class="tag">代購</span>' +
-          '<span class="item-cell">' + escapeHtml(it.item) + '</span>' +
-          '<span class="store-cell">' + (it.store ? ('🏬 ' + escapeHtml(it.store)) : '') + '</span>' +
-          '<span class="client-cell">' + (it.client ? ('→ ' + escapeHtml(it.client)) : '') + '</span>' +
-          '<label><input type="checkbox" data-action="toggle-delivered" data-id="' + it.id + '"' + (it.delivered ? " checked" : "") + '> 已交付</label>' +
-          '<label><input type="checkbox" data-action="toggle-paid" data-id="' + it.id + '"' + (it.paid ? " checked" : "") + '> 已收款</label>' +
-          '<span class="qty-cell">數量 ' + it.qty + '</span>' +
-          '<span class="amt-cell">' + amt(it) + '</span>' +
-          '<button class="ghost revert-btn" data-action="revert-purchased" data-id="' + it.id + '">↩ 退回尚未購買</button>' +
-        '</div>';
-      }).join("");
-
-      var purchasedSelfRows = g.purchasedSelf.map(function (it) {
-        return '<div class="reminder-item"><span class="name">' +
-          '<input type="checkbox" data-action="toggle-self-purchased" data-id="' + it.id + '" checked>' +
+          '<input type="checkbox" data-action="toggle-purchased" data-id="' + it.id + '" checked>' +
           '<span class="tag">自購</span>' + escapeHtml(it.item) +
           '</span><span class="muted">數量 ' + it.qty + '　' + amt(it) + '</span></div>';
-      }).join("");
+      }
 
-      var toBuySection = (daigouRows || selfRows)
-        ? '<div class="reminder-section"><div class="muted" style="margin-bottom:4px;">尚未購買</div>' + daigouRows + selfRows + '</div>'
-        : "";
-      var purchasedSection = (purchasedDaigouRows || purchasedSelfRows)
-        ? '<div class="reminder-section"><div class="muted" style="margin-bottom:4px;">已購買</div>' + purchasedDaigouRows + purchasedSelfRows + '</div>'
-        : "";
+      function groupByStore(list) {
+        var order = [];
+        var buckets = {};
+        list.forEach(function (it) {
+          var key = it.store || "";
+          if (!buckets[key]) { buckets[key] = []; order.push(key); }
+          buckets[key].push(it);
+        });
+        order.sort(function (a, b) {
+          if (!a) return 1;
+          if (!b) return -1;
+          return a.localeCompare(b, "zh-Hant");
+        });
+        return { order: order, buckets: buckets };
+      }
+
+      function buildStatusBlock(list, buildRowFn, label) {
+        if (!list.length) return "";
+        var grouped = groupByStore(list);
+        var storeHtml = grouped.order.map(function (storeName) {
+          return '<div style="margin:8px 0 4px; font-weight:600;">🏬 ' + (storeName ? escapeHtml(storeName) : "未填店家") + '</div>' +
+            grouped.buckets[storeName].map(buildRowFn).join("");
+        }).join("");
+        return '<div class="reminder-section">' +
+          '<div class="muted" style="font-weight:600; padding:2px 4px; margin-bottom:2px; background:var(--bg); border-radius:4px;">' + label + '</div>' +
+          storeHtml +
+        '</div>';
+      }
+
+      var statusSections = buildStatusBlock(g.toBuy, buildToBuyRow, "尚未購買") + buildStatusBlock(g.purchased, buildPurchasedRow, "已購買");
 
       var totalsLine = '<div class="status-line">應收未收：<b style="color:var(--text)">NT$ ' + fmtMoney(g.unpaidTotal) +
         '</b>　已收款：<b style="color:var(--text)">NT$ ' + fmtMoney(g.paidTotal) + '</b></div>';
@@ -1742,7 +1621,7 @@
       return '<div class="reminder-group">' +
         '<h3>' + escapeHtml(g.trip.name) + ' <span class="badge ' + badgeClass + '">' + badgeText + '</span> <span class="muted">（共 ' + g.count + ' 項）</span></h3>' +
         totalsLine +
-        toBuySection + purchasedSection +
+        statusSections +
         '</div>';
     }).join("");
   }
@@ -1768,11 +1647,6 @@
     if (action === "delete-daigou") {
       if (confirm("確定刪除這筆代購項目？")) {
         data.daigouItems = data.daigouItems.filter(function (it) { return it.id !== id; });
-        saveData(); renderAll();
-      }
-    } else if (action === "delete-self") {
-      if (confirm("確定刪除這筆自購項目？")) {
-        data.selfItems = data.selfItems.filter(function (it) { return it.id !== id; });
         saveData(); renderAll();
       }
     } else if (action === "delete-food") {
@@ -1872,39 +1746,6 @@
         state.editingDaigouId = null;
         saveData(); renderAll();
       }
-    } else if (action === "edit-self") {
-      state.editingSelfId = id;
-      renderAll();
-    } else if (action === "cancel-self-edit") {
-      state.editingSelfId = null;
-      renderAll();
-    } else if (action === "save-self-edit") {
-      var editSelfItem = data.selfItems.find(function (it) { return it.id === id; });
-      if (editSelfItem) {
-        var newSelfStore = document.getElementById("editStore_" + id).value.trim();
-        var newItemName = document.getElementById("editItem_" + id).value.trim();
-        var newSelfPriceRaw = document.getElementById("editPrice_" + id).value.trim();
-        var newSelfPrice = newSelfPriceRaw === "" ? null : parseFloat(newSelfPriceRaw);
-        var newSelfQty = parseInt(document.getElementById("editQty_" + id).value, 10);
-        if (!newItemName) {
-          alert("請填寫商品名稱");
-          return;
-        }
-        if (newSelfPrice !== null && (isNaN(newSelfPrice) || newSelfPrice < 0)) {
-          alert("單價請輸入有效數字，或留空待輸入");
-          return;
-        }
-        if (isNaN(newSelfQty) || newSelfQty < 1) {
-          alert("數量請輸入有效數字");
-          return;
-        }
-        editSelfItem.store = newSelfStore;
-        editSelfItem.item = newItemName;
-        editSelfItem.price = newSelfPrice;
-        editSelfItem.qty = newSelfQty;
-        state.editingSelfId = null;
-        saveData(); renderAll();
-      }
     } else if (action === "edit-food") {
       state.editingFoodId = id;
       renderAll();
@@ -1916,7 +1757,6 @@
       if (editFoodItem) {
         var newStore = document.getElementById("editStore_" + id).value.trim();
         var newFoodItemName = document.getElementById("editItem_" + id).value.trim();
-        var newFoodType = document.getElementById("editType_" + id).value;
         var newFoodPriceRaw = document.getElementById("editPrice_" + id).value.trim();
         var newFoodPrice = newFoodPriceRaw === "" ? null : parseFloat(newFoodPriceRaw);
         if (!newFoodItemName) {
@@ -1929,7 +1769,6 @@
         }
         editFoodItem.store = newStore;
         editFoodItem.item = newFoodItemName;
-        editFoodItem.type = newFoodType;
         editFoodItem.price = newFoodPrice;
         state.editingFoodId = null;
         saveData(); renderAll();
@@ -1957,9 +1796,6 @@
     } else if (action === "toggle-paid") {
       item = data.daigouItems.find(function (it) { return it.id === id; });
       if (item) { item.paid = el.checked; saveData(); renderAll(); }
-    } else if (action === "toggle-self-purchased") {
-      item = data.selfItems.find(function (it) { return it.id === id; });
-      if (item) { item.purchased = el.checked; saveData(); renderAll(); }
     } else if (action === "toggle-packed") {
       item = data.packingItems.find(function (it) { return it.id === id; });
       if (item) { item.packed = el.checked; saveData(); renderAll(); }
@@ -1969,14 +1805,6 @@
         var v = el.value.trim();
         var p = v === "" ? null : parseFloat(v);
         item.price = (p !== null && (isNaN(p) || p < 0)) ? null : p;
-        saveData(); renderAll();
-      }
-    } else if (action === "update-self-price") {
-      item = data.selfItems.find(function (it) { return it.id === id; });
-      if (item) {
-        var v2 = el.value.trim();
-        var p2 = v2 === "" ? null : parseFloat(v2);
-        item.price = (p2 !== null && (isNaN(p2) || p2 < 0)) ? null : p2;
         saveData(); renderAll();
       }
     }
@@ -1998,8 +1826,8 @@
       try { this.showPicker(); } catch (e) {}
     }
   });
-  document.getElementById("btnAddDaigou").addEventListener("click", addDaigouItem);
-  document.getElementById("btnAddSelf").addEventListener("click", addSelfItem);
+  document.getElementById("btnAddDaigou").addEventListener("click", addPurchaseItem);
+  document.getElementById("pu_client").addEventListener("input", updateFeeWrapVisibility);
   document.getElementById("btnAddFood").addEventListener("click", addFoodItem);
   document.getElementById("btnAddItinerary").addEventListener("click", addItineraryItem);
   document.getElementById("d_clientFilter").addEventListener("change", renderDaigouTable);
@@ -2023,15 +1851,29 @@
   function renderAll() {
     renderTripSelect();
     renderTripMeta();
+    renderTripBarVisibility();
     renderClientFilterOptions();
     renderDaigouTable();
-    renderSelfTable();
     renderReminder();
     renderPackingQuickAdd();
     renderPackingList();
     renderFoodTable();
     renderItineraryContent();
   }
+
+  document.getElementById("stickyTripBar").addEventListener("click", function () { state.tripBarInteracted = true; });
+  document.getElementById("stickyTripBar").addEventListener("change", function () { state.tripBarInteracted = true; });
+  document.getElementById("btnExpandTripBar").addEventListener("click", function () {
+    state.tripBarCollapsed = false;
+    state.tripBarInteracted = true;
+    renderTripBarVisibility();
+  });
+  setTimeout(function () {
+    if (!state.tripBarInteracted) {
+      state.tripBarCollapsed = true;
+      renderTripBarVisibility();
+    }
+  }, 30000);
 
   renderAll();
   switchTab("packing");
