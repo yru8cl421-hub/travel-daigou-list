@@ -461,6 +461,10 @@
           <label>地點/活動</label>
           <input id="it_place" placeholder="例如：小鹿街">
         </div>
+        <div class="field grow">
+          <label>地址（選填，用於快速導航）</label>
+          <input id="it_address" placeholder="例如：東京都渋谷区...">
+        </div>
         <button id="btnAddItinerary">新增</button>
       </div>
       <div class="row" style="align-items:center; gap:10px; margin-top:4px;">
@@ -587,6 +591,7 @@
 
   /** @type {{trips: any[], daigouItems: any[]}} */
   var data = loadData();
+  normalizeStoreCasing(data);
   var state = {
     currentTripId: data.trips.length ? data.trips[0].id : null,
     activeTab: "packing",
@@ -628,6 +633,30 @@
       console.warn("讀取本機資料失敗，將重新初始化", e);
     }
     return { trips: [], daigouItems: [], packingItems: [], foodItems: [], itineraryItems: [] };
+  }
+
+  function normalizeStoreCasing(d) {
+    var canonical = {};
+    function normalizeList(list) {
+      list.forEach(function (it) {
+        if (!it.store) return;
+        var key = it.store.toLowerCase();
+        if (!canonical[key]) canonical[key] = it.store;
+        else it.store = canonical[key];
+      });
+    }
+    normalizeList(d.daigouItems);
+    normalizeList(d.foodItems);
+  }
+
+  function getCanonicalStoreName(raw) {
+    raw = (raw || "").trim();
+    if (!raw) return "";
+    var allNames = data.daigouItems.map(function (it) { return it.store; })
+      .concat(data.foodItems.map(function (it) { return it.store; }))
+      .filter(function (s) { return s; });
+    var match = allNames.find(function (s) { return s.toLowerCase() === raw.toLowerCase(); });
+    return match || raw;
   }
 
   function saveData() {
@@ -967,7 +996,7 @@
     var trip = getTrip(state.currentTripId);
     if (!trip) { alert("請先建立行程"); return; }
     var client = document.getElementById("pu_client").value.trim();
-    var store = document.getElementById("pu_store").value.trim();
+    var store = getCanonicalStoreName(document.getElementById("pu_store").value);
     var item = document.getElementById("pu_item").value.trim();
     var qty = parseInt(document.getElementById("pu_qty").value, 10) || 1;
     var fee = client ? (parseFloat(document.getElementById("pu_fee").value) || 0) : 0;
@@ -1063,7 +1092,7 @@
       receivable: receivable,
       hasPrice: hasPrice,
       html: '<tr>' +
-        '<td>' + (it.client ? escapeHtml(it.client) : '<span class="muted">自己</span>') + '</td>' +
+        '<td>' + (it.client ? escapeHtml(it.client) : "自己") + '</td>' +
         (showTripColumn ? '<td>' + escapeHtml(trip ? trip.name : "—") + '</td>' : "") +
         '<td>' + (it.store ? escapeHtml(it.store) : '<span class="muted">—</span>') + '</td>' +
         '<td>' + escapeHtml(it.item) +
@@ -1156,7 +1185,7 @@
   function addFoodItem() {
     var trip = getTrip(state.currentTripId);
     if (!trip) { alert("請先建立行程"); return; }
-    var store = document.getElementById("fd_store").value.trim();
+    var store = getCanonicalStoreName(document.getElementById("fd_store").value);
     var item = document.getElementById("fd_item").value.trim();
     var priceRaw = document.getElementById("fd_price").value.trim();
     var price = priceRaw === "" ? null : parseFloat(priceRaw);
@@ -1315,6 +1344,7 @@
     var day = parseInt(document.getElementById("it_day").value, 10) || 1;
     var timeResult = normalizeTime24(document.getElementById("it_time").value);
     var place = document.getElementById("it_place").value.trim();
+    var address = document.getElementById("it_address").value.trim();
     var stores = state.itineraryStoreSelections["add"] || [];
 
     if (!place) {
@@ -1333,6 +1363,7 @@
       day: day,
       time: time,
       place: place,
+      address: address,
       stores: stores,
       createdAt: new Date().toISOString()
     });
@@ -1340,6 +1371,7 @@
 
     document.getElementById("it_time").value = "";
     document.getElementById("it_place").value = "";
+    document.getElementById("it_address").value = "";
     delete state.itineraryStoreSelections["add"];
 
     renderAll();
@@ -1415,6 +1447,7 @@
               '<div class="field" style="max-width:90px;"><label>第幾天</label><input type="number" min="1" step="1" id="editDay_' + it.id + '" value="' + it.day + '"></div>' +
               '<div class="field" style="max-width:100px;"><label>時間（24H）</label><input id="editTime_' + it.id + '" value="' + escapeHtml(it.time || "") + '" placeholder="1400 或 14:00"></div>' +
               '<div class="field grow"><label>地點/活動</label><input id="editPlace_' + it.id + '" value="' + escapeHtml(it.place) + '"></div>' +
+              '<div class="field grow"><label>地址（選填，用於快速導航）</label><input id="editAddress_' + it.id + '" value="' + escapeHtml(it.address || "") + '"></div>' +
             '</div>' +
             '<div class="row" style="align-items:center; gap:10px;">' +
               '<span class="muted" style="font-size:13px;">這裡有的店家</span>' +
@@ -1427,14 +1460,17 @@
             '</div>' +
           '</div>';
         }
+        var mapsQuery = encodeURIComponent(it.address || it.place);
         return '<div class="reminder-item" style="flex-direction:column; align-items:stretch; gap:4px;">' +
           '<div class="row" style="justify-content:space-between; align-items:center;">' +
             '<span class="name">' + (it.time ? ('<b>' + escapeHtml(it.time) + '</b>　') : '') + escapeHtml(it.place) + '</span>' +
             '<span class="row" style="gap:6px;">' +
+              '<a class="chip" href="https://www.google.com/maps/search/?api=1&query=' + mapsQuery + '" target="_blank" rel="noopener" style="text-decoration:none;">📍 導航</a>' +
               '<button class="ghost" data-action="edit-itinerary" data-id="' + it.id + '">編輯</button>' +
               '<button class="ghost del-btn" data-action="delete-itinerary" data-id="' + it.id + '">刪除</button>' +
             '</span>' +
           '</div>' +
+          (it.address ? '<span class="muted" style="font-size:12px;">📍 ' + escapeHtml(it.address) + '</span>' : '') +
           findRelatedReminders(it) +
         '</div>';
       }).join("");
@@ -1680,6 +1716,7 @@
         var newDay = parseInt(document.getElementById("editDay_" + id).value, 10);
         var newTimeResult = normalizeTime24(document.getElementById("editTime_" + id).value);
         var newPlace = document.getElementById("editPlace_" + id).value.trim();
+        var newAddress = document.getElementById("editAddress_" + id).value.trim();
         var newStores = state.itineraryStoreSelections[id] || [];
         if (!newPlace) {
           alert("請填寫地點/活動");
@@ -1696,6 +1733,7 @@
         editItinerary.day = newDay;
         editItinerary.time = newTimeResult.value;
         editItinerary.place = newPlace;
+        editItinerary.address = newAddress;
         editItinerary.stores = newStores;
         delete state.itineraryStoreSelections[id];
         state.editingItineraryId = null;
@@ -1722,7 +1760,7 @@
     } else if (action === "save-daigou-edit") {
       var editItem = data.daigouItems.find(function (it) { return it.id === id; });
       if (editItem) {
-        var newStore = document.getElementById("editStore_" + id).value.trim();
+        var newStore = getCanonicalStoreName(document.getElementById("editStore_" + id).value);
         var priceRaw = document.getElementById("editPrice_" + id).value.trim();
         var newPrice = priceRaw === "" ? null : parseFloat(priceRaw);
         var newQty = parseInt(document.getElementById("editQty_" + id).value, 10);
@@ -1755,7 +1793,7 @@
     } else if (action === "save-food-edit") {
       var editFoodItem = data.foodItems.find(function (it) { return it.id === id; });
       if (editFoodItem) {
-        var newStore = document.getElementById("editStore_" + id).value.trim();
+        var newStore = getCanonicalStoreName(document.getElementById("editStore_" + id).value);
         var newFoodItemName = document.getElementById("editItem_" + id).value.trim();
         var newFoodPriceRaw = document.getElementById("editPrice_" + id).value.trim();
         var newFoodPrice = newFoodPriceRaw === "" ? null : parseFloat(newFoodPriceRaw);
