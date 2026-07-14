@@ -318,6 +318,7 @@
   .checkbox-cell { text-align: center; }
   .chip { font-size: 12px; padding: 4px 10px; background: var(--primary-dim); color: var(--primary); border-radius: 999px; }
   .chip:disabled { background: var(--bg); color: var(--text-dim); opacity: 0.6; }
+  .chip.active { background: var(--primary); color: #fff; }
   .packing-item {
     display: flex;
     align-items: center;
@@ -463,7 +464,7 @@
         </div>
         <div class="field grow">
           <label>地址（選填，用於快速導航）</label>
-          <input id="it_address" placeholder="例如：東京都渋谷区...">
+          <input id="it_address" placeholder="例如：停車場地址或詳細地址">
         </div>
         <button id="btnAddItinerary">新增</button>
       </div>
@@ -603,7 +604,8 @@
     itineraryStoreSelections: {},
     showManualRate: false,
     tripBarCollapsed: false,
-    tripBarInteracted: false
+    tripBarInteracted: false,
+    collapsedDays: {}
   };
 
   function loadData() {
@@ -1447,7 +1449,7 @@
               '<div class="field" style="max-width:90px;"><label>第幾天</label><input type="number" min="1" step="1" id="editDay_' + it.id + '" value="' + it.day + '"></div>' +
               '<div class="field" style="max-width:100px;"><label>時間（24H）</label><input id="editTime_' + it.id + '" value="' + escapeHtml(it.time || "") + '" placeholder="1400 或 14:00"></div>' +
               '<div class="field grow"><label>地點/活動</label><input id="editPlace_' + it.id + '" value="' + escapeHtml(it.place) + '"></div>' +
-              '<div class="field grow"><label>地址（選填，用於快速導航）</label><input id="editAddress_' + it.id + '" value="' + escapeHtml(it.address || "") + '"></div>' +
+              '<div class="field grow"><label>地址（選填，用於快速導航）</label><input id="editAddress_' + it.id + '" value="' + escapeHtml(it.address || "") + '" placeholder="例如：停車場地址或詳細地址"></div>' +
             '</div>' +
             '<div class="row" style="align-items:center; gap:10px;">' +
               '<span class="muted" style="font-size:13px;">這裡有的店家</span>' +
@@ -1463,7 +1465,8 @@
         var mapsQuery = encodeURIComponent(it.address || it.place);
         return '<div class="reminder-item" style="flex-direction:column; align-items:stretch; gap:4px;">' +
           '<div class="row" style="justify-content:space-between; align-items:center;">' +
-            '<span class="name">' + (it.time ? ('<b>' + escapeHtml(it.time) + '</b>　') : '') + escapeHtml(it.place) + '</span>' +
+            '<span class="name">' + (it.time ? ('<b>' + escapeHtml(it.time) + '</b>　') : '') + escapeHtml(it.place) +
+            '</span>' +
             '<span class="row" style="gap:6px;">' +
               '<a class="chip" href="https://www.google.com/maps/search/?api=1&query=' + mapsQuery + '" target="_blank" rel="noopener" style="text-decoration:none;">📍 導航</a>' +
               '<button class="ghost" data-action="edit-itinerary" data-id="' + it.id + '">編輯</button>' +
@@ -1475,7 +1478,14 @@
         '</div>';
       }).join("");
       var dateLabel = formatDayDate(trip.departureDate, day);
-      return '<div class="card"><h2>Day ' + day + (dateLabel ? ('　<span class="muted" style="font-size:13px; font-weight:400;">' + dateLabel + '</span>') : '') + '</h2>' + rows + '</div>';
+      var isCollapsed = !!state.collapsedDays[day];
+      var header = '<div class="row" style="justify-content:space-between; align-items:center; cursor:pointer; margin-bottom:' + (isCollapsed ? '0' : '10px') + ';" data-action="toggle-day-collapse" data-day="' + day + '">' +
+        '<h2 style="margin:0;">' + (isCollapsed ? '▶' : '▼') + ' Day ' + day +
+          (dateLabel ? ('　<span class="muted" style="font-size:13px; font-weight:400;">' + dateLabel + '</span>') : '') +
+          '　<span class="muted" style="font-size:13px; font-weight:400;">（' + dayItems.length + ' 項）</span>' +
+        '</h2>' +
+      '</div>';
+      return '<div class="card">' + header + (isCollapsed ? '' : rows) + '</div>';
     }).join("");
   }
 
@@ -1695,12 +1705,18 @@
         data.itineraryItems = data.itineraryItems.filter(function (it) { return it.id !== id; });
         saveData(); renderAll();
       }
+    } else if (action === "toggle-suggested-store") {
+      toggleAddStoreSelection(el.dataset.name);
     } else if (action === "open-store-modal") {
       openStoreModal(el.dataset.target);
     } else if (action === "close-store-modal") {
       closeStoreModal();
     } else if (action === "confirm-store-modal") {
       confirmStoreModal();
+    } else if (action === "toggle-day-collapse") {
+      var toggleDay = el.dataset.day;
+      state.collapsedDays[toggleDay] = !state.collapsedDays[toggleDay];
+      renderItineraryContent();
     } else if (action === "edit-itinerary") {
       var editingItin = data.itineraryItems.find(function (it) { return it.id === id; });
       state.itineraryStoreSelections[id] = editingItin ? (editingItin.stores || []).slice() : [];
