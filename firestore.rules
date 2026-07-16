@@ -1,0 +1,48 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /rooms/{roomId} {
+      // 任何登入（含匿名）的人都能讀取房間基本資料與成員名單
+      allow read: if request.auth != null;
+
+      // 建立房間：建立者必須把自己設成 owner
+      allow create: if request.auth != null
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.members[request.auth.uid].role == 'owner';
+
+      // 更新房間：
+      // 1) 房主可以改任何東西（例如調整成員權限）
+      // 2) 非房主只能「加入」自己這個成員欄位，且只能把自己設成 viewer（不能自我升級、也不能動別人的資料）
+      allow update: if request.auth != null && (
+        request.auth.uid == resource.data.ownerUid ||
+        (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members']) &&
+          request.resource.data.members.diff(resource.data.members).affectedKeys().hasOnly([request.auth.uid]) &&
+          !(request.auth.uid in resource.data.members) &&
+          request.resource.data.members[request.auth.uid].role == 'viewer'
+        )
+      );
+
+      allow delete: if request.auth != null && request.auth.uid == resource.data.ownerUid;
+
+      match /itineraryItems/{itemId} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null &&
+          get(/databases/$(database)/documents/rooms/$(roomId)).data.members[request.auth.uid].role in ['owner', 'editor'];
+      }
+
+      match /foodItems/{itemId} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null &&
+          get(/databases/$(database)/documents/rooms/$(roomId)).data.members[request.auth.uid].role in ['owner', 'editor'];
+      }
+
+      match /fixedExpenses/{itemId} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null &&
+          get(/databases/$(database)/documents/rooms/$(roomId)).data.members[request.auth.uid].role in ['owner', 'editor'];
+      }
+    }
+  }
+}
