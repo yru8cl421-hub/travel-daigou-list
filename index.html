@@ -368,6 +368,7 @@
     <button class="danger" id="btnDeleteTrip" title="刪除">🗑️</button>
     <span id="tripMeta" class="trip-meta"></span>
     <span id="tripEmpty" class="muted" style="display:none;">目前沒有行程，請先新增一個行程。</span>
+    <div id="roomStatus" style="flex-basis:100%; margin-top:6px;"></div>
   </div>
 
   <div id="tripForm" class="card" style="display:none;">
@@ -600,6 +601,34 @@
   </div>
 </div>
 
+<div id="memberModalOverlay" class="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <div class="row" style="justify-content:space-between; align-items:center;">
+      <h2 style="margin:0;">成員管理</h2>
+      <button class="ghost" data-action="close-member-modal">✕</button>
+    </div>
+    <div id="memberModalList" style="margin:12px 0;"></div>
+    <div class="row" style="justify-content:flex-end;">
+      <button class="secondary" data-action="close-member-modal">關閉</button>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase（共享房間功能：行程安排＋餐廳美食跨裝置同步用） -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script>
+  firebase.initializeApp({
+    apiKey: "AIzaSyCkjtPzfvjE4Z8TUijhsUj4L3-pHcMb4KE",
+    authDomain: "travel-49ae6.firebaseapp.com",
+    projectId: "travel-49ae6",
+    storageBucket: "travel-49ae6.firebasestorage.app",
+    messagingSenderId: "729070291907",
+    appId: "1:729070291907:web:29216536a6acd1cf7c0b76"
+  });
+</script>
+
 <script>
 (function () {
   "use strict";
@@ -621,9 +650,12 @@
     itineraryStoreSelections: {},
     showManualRate: false,
     tripBarCollapsed: false,
-    tripBarInteracted: false,
-    collapsedDays: {}
+    collapsedDays: {},
+    roomListeners: {}
   };
+
+  var db = firebase.firestore();
+  var auth = firebase.auth();
 
   function loadData() {
     try {
@@ -684,6 +716,252 @@
 
   function uid() {
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+
+  // ---------- 共享房間 ----------
+  function getDisplayName() {
+    var name = localStorage.getItem("travel_display_name");
+    if (!name) {
+      name = (prompt("請輸入你的顯示名稱（其他成員會看到）：", "") || "").trim();
+      if (!name) name = "旅伴";
+      localStorage.setItem("travel_display_name", name);
+    }
+    return name;
+  }
+
+  function ensureAuth() {
+    if (auth.currentUser) return Promise.resolve(auth.currentUser.uid);
+    return auth.signInAnonymously().then(function (cred) { return cred.user.uid; });
+  }
+
+  function changeDisplayName() {
+    var current = localStorage.getItem("travel_display_name") || "";
+    var name = (prompt("修改你的顯示名稱（其他房間成員會看到）：", current) || "").trim();
+    if (!name || name === current) return;
+    localStorage.setItem("travel_display_name", name);
+    renderAll();
+    var authUid = auth.currentUser && auth.currentUser.uid;
+    if (!authUid) return;
+    data.trips.filter(function (t) { return t.roomId; }).forEach(function (t) {
+      var update = {};
+      update["members." + authUid + ".displayName"] = name;
+      db.collection("rooms").doc(t.roomId).update(update).catch(function (err) {
+        console.warn("更新暱稱失敗", err);
+      });
+    });
+  }
+
+  function canEditRoomContent(trip) {
+    return !trip.roomId || trip.roomRole === "owner" || trip.roomRole === "editor";
+  }
+
+  function subscribeToRoom(trip) {
+    if (!trip.roomId || state.roomListeners[trip.id]) return;
+    var roomRef = db.collection("rooms").doc(trip.roomId);
+    var unsubRoom = roomRef.onSnapshot(function (snap) {
+      if (!snap.exists) return;
+      var roomData = snap.data();
+      var authUid = auth.currentUser && auth.currentUser.uid;
+      var myMember = authUid && roomData.members ? roomData.members[authUid] : null;
+      if (myMember && myMember.role !== trip.roomRole) {
+        trip.roomRole = myMember.role;
+        saveData();
+      }
+      trip.roomMembers = roomData.members || {};
+      saveData();
+      renderAll();
+    }, function (err) {
+      console.warn("房間監聽失敗", err);
+    });
+    var unsubItinerary = roomRef.collection("itineraryItems").onSnapshot(function (snap) {
+      data.itineraryItems = data.itineraryItems.filter(function (it) { return it.tripId !== trip.id; });
+      snap.forEach(function (doc) {
+        var d = doc.data();
+        d.id = doc.id;
+        d.tripId = trip.id;
+        data.itineraryItems.push(d);
+      });
+      saveData();
+      renderItineraryContent();
+    }, function (err) {
+      console.warn("行程安排同步失敗", err);
+    });
+    var unsubFood = roomRef.collection("foodItems").onSnapshot(function (snap) {
+      data.foodItems = data.foodItems.filter(function (it) { return it.tripId !== trip.id; });
+      snap.forEach(function (doc) {
+        var d = doc.data();
+        d.id = doc.id;
+        d.tripId = trip.id;
+        data.foodItems.push(d);
+      });
+      saveData();
+      renderFoodTable();
+    }, function (err) {
+      console.warn("餐飲同步失敗", err);
+    });
+    state.roomListeners[trip.id] = [unsubRoom, unsubItinerary, unsubFood];
+  }
+
+  function createRoom() {
+    var trip = getTrip(state.currentTripId);
+    if (!trip) { alert("請先建立行程"); return; }
+    if (trip.roomId) { alert("這個行程已經連結房間了"); return; }
+    var roomRef = db.collection("rooms").doc();
+    ensureAuth().then(function (authUid) {
+      var displayName = getDisplayName();
+      var members = {};
+      members[authUid] = { displayName: displayName, role: "owner", joinedAt: Date.now() };
+      return roomRef.set({
+        ownerUid: authUid,
+        createdAt: Date.now(),
+        trip: { name: trip.name, country: trip.country, currency: trip.currency, departureDate: trip.departureDate || "" },
+        members: members
+      });
+    }).then(function () {
+      var batch = db.batch();
+      data.itineraryItems.filter(function (it) { return it.tripId === trip.id; }).forEach(function (it) {
+        var ref = roomRef.collection("itineraryItems").doc();
+        var copy = {};
+        Object.keys(it).forEach(function (k) { if (k !== "id" && k !== "tripId") copy[k] = it[k]; });
+        batch.set(ref, copy);
+      });
+      data.foodItems.filter(function (it) { return it.tripId === trip.id; }).forEach(function (it) {
+        var ref = roomRef.collection("foodItems").doc();
+        var copy = {};
+        Object.keys(it).forEach(function (k) { if (k !== "id" && k !== "tripId") copy[k] = it[k]; });
+        batch.set(ref, copy);
+      });
+      return batch.commit();
+    }).then(function () {
+      trip.roomId = roomRef.id;
+      trip.roomRole = "owner";
+      saveData();
+      subscribeToRoom(trip);
+      renderAll();
+      var link = location.href.split("?")[0] + "?join=" + roomRef.id;
+      prompt("房間已建立！把這個連結傳給旅伴，他們打開就能加入（預設唯讀，可在成員管理設定編輯權限）：", link);
+    }).catch(function (err) {
+      alert("建立房間失敗：" + err.message);
+    });
+  }
+
+  function joinRoomFlow(roomId) {
+    ensureAuth().then(function (authUid) {
+      var displayName = getDisplayName();
+      var roomRef = db.collection("rooms").doc(roomId);
+      return roomRef.get().then(function (snap) {
+        if (!snap.exists) { alert("找不到這個房間，連結可能有誤或房間已刪除"); return; }
+        var roomData = snap.data();
+        var existingTrip = data.trips.find(function (t) { return t.roomId === roomId; });
+        var trip;
+        if (existingTrip) {
+          trip = existingTrip;
+        } else {
+          trip = {
+            id: uid(),
+            name: (roomData.trip && roomData.trip.name) || "共享行程",
+            country: (roomData.trip && roomData.trip.country) || "",
+            currency: (roomData.trip && roomData.trip.currency) || "JPY",
+            departureDate: (roomData.trip && roomData.trip.departureDate) || "",
+            exchangeRate: null,
+            rateUpdatedAt: null,
+            rateSource: null,
+            createdAt: new Date().toISOString(),
+            roomId: roomId
+          };
+          data.trips.push(trip);
+        }
+        var isMember = roomData.members && roomData.members[authUid];
+        var updatePromise = Promise.resolve();
+        if (!isMember) {
+          var update = {};
+          update["members." + authUid] = { displayName: displayName, role: "viewer", joinedAt: Date.now() };
+          updatePromise = roomRef.update(update);
+        }
+        return updatePromise.then(function () {
+          trip.roomRole = isMember ? roomData.members[authUid].role : "viewer";
+          state.currentTripId = trip.id;
+          saveData();
+          subscribeToRoom(trip);
+          renderAll();
+          alert("已加入房間「" + trip.name + "」！" + (trip.roomRole === "viewer" ? "目前是唯讀權限，請房主到成員管理開放編輯" : ""));
+        });
+      });
+    }).catch(function (err) {
+      alert("加入房間失敗：" + err.message);
+    });
+  }
+
+  function toggleMemberRole(memberUid, currentRole) {
+    var trip = getTrip(state.currentTripId);
+    if (!trip || !trip.roomId) return;
+    var newRole = currentRole === "editor" ? "viewer" : "editor";
+    var update = {};
+    update["members." + memberUid + ".role"] = newRole;
+    db.collection("rooms").doc(trip.roomId).update(update).catch(function (err) {
+      alert("更新權限失敗：" + err.message);
+    });
+  }
+
+  function renderRoomStatus() {
+    var box = document.getElementById("roomStatus");
+    var trip = getTrip(state.currentTripId);
+    if (!trip) { box.innerHTML = ""; return; }
+    var myName = localStorage.getItem("travel_display_name") || "";
+    var nameLine = '<div class="row" style="gap:8px; align-items:center; margin-bottom:8px;">' +
+      '<span class="muted" style="font-size:12px;">你的暱稱：' + (myName ? escapeHtml(myName) : "尚未設定") + '</span>' +
+      '<button class="ghost" data-action="change-display-name">✏️ 修改暱稱</button>' +
+    '</div>';
+    if (!trip.roomId) {
+      box.innerHTML = nameLine +
+        '<div class="muted" style="margin-bottom:8px;">尚未連結共享房間，行程安排與餐廳美食目前只存在你自己的裝置上。</div>' +
+        '<button class="secondary" data-action="create-room">🔗 建立共享房間</button>';
+      return;
+    }
+    var roleLabel = { owner: "房主", editor: "可編輯", viewer: "唯讀" }[trip.roomRole] || "唯讀";
+    var link = location.href.split("?")[0] + "?join=" + trip.roomId;
+    var html = nameLine +
+      '<div class="muted" style="margin-bottom:8px;">已連結共享房間（身分：' + roleLabel + '）</div>' +
+      '<div class="row" style="gap:8px; margin-bottom:8px;">' +
+        '<button class="secondary" data-action="copy-room-link" data-link="' + escapeHtml(link) + '">🔗 複製邀請連結</button>';
+    if (trip.roomRole === "owner") {
+      html += '<button class="secondary" data-action="manage-room-members">👥 成員管理</button>';
+    }
+    html += '</div>';
+    var members = trip.roomMembers || {};
+    var memberNames = Object.keys(members).map(function (mUid) {
+      var m = members[mUid];
+      var label = m.role === "owner" ? "房主" : m.role === "editor" ? "可編輯" : "唯讀";
+      return m.displayName + "（" + label + "）";
+    });
+    if (memberNames.length) {
+      html += '<div class="muted" style="font-size:12px;">成員：' + memberNames.map(escapeHtml).join("、") + '</div>';
+    }
+    box.innerHTML = html;
+  }
+
+  function openMemberModal() {
+    var trip = getTrip(state.currentTripId);
+    if (!trip || !trip.roomId) return;
+    var members = trip.roomMembers || {};
+    var list = document.getElementById("memberModalList");
+    var rows = Object.keys(members).map(function (mUid) {
+      var m = members[mUid];
+      if (m.role === "owner") {
+        return '<div class="reminder-item"><span class="name">' + escapeHtml(m.displayName) + '</span><span class="badge success">房主</span></div>';
+      }
+      var isEditor = m.role === "editor";
+      return '<div class="reminder-item"><span class="name">' + escapeHtml(m.displayName) + '　' +
+        '<span class="badge ' + (isEditor ? "success" : "warn") + '">' + (isEditor ? "可編輯" : "唯讀") + '</span></span>' +
+        '<button class="ghost" data-action="toggle-member-role" data-uid="' + mUid + '" data-current-role="' + m.role + '">' +
+        (isEditor ? "設為唯讀" : "設為可編輯") + '</button></div>';
+    }).join("");
+    list.innerHTML = rows || '<div class="empty">目前還沒有其他成員</div>';
+    document.getElementById("memberModalOverlay").style.display = "flex";
+  }
+
+  function closeMemberModal() {
+    document.getElementById("memberModalOverlay").style.display = "none";
   }
 
   function pad2(n) {
@@ -1204,6 +1482,7 @@
   function addFoodItem() {
     var trip = getTrip(state.currentTripId);
     if (!trip) { alert("請先建立行程"); return; }
+    if (!canEditRoomContent(trip)) { alert("你目前是唯讀權限，無法新增"); return; }
     var store = getCanonicalStoreName(document.getElementById("fd_store").value);
     var item = document.getElementById("fd_item").value.trim();
     var priceRaw = document.getElementById("fd_price").value.trim();
@@ -1218,15 +1497,16 @@
       return;
     }
 
-    data.foodItems.push({
-      id: uid(),
-      tripId: trip.id,
-      store: store,
-      item: item,
-      price: price,
-      createdAt: new Date().toISOString()
-    });
-    saveData();
+    var foodData = { store: store, item: item, price: price, createdAt: new Date().toISOString() };
+    if (trip.roomId) {
+      db.collection("rooms").doc(trip.roomId).collection("foodItems").add(foodData)
+        .catch(function (err) { alert("新增失敗：" + err.message); });
+    } else {
+      foodData.id = uid();
+      foodData.tripId = trip.id;
+      data.foodItems.push(foodData);
+      saveData();
+    }
 
     document.getElementById("fd_store").value = "";
     document.getElementById("fd_item").value = "";
@@ -1360,6 +1640,7 @@
   function addItineraryItem() {
     var trip = getTrip(state.currentTripId);
     if (!trip) { alert("請先建立行程"); return; }
+    if (!canEditRoomContent(trip)) { alert("你目前是唯讀權限，無法新增行程項目"); return; }
     var day = parseInt(document.getElementById("it_day").value, 10) || 1;
     var timeResult = normalizeTime24(document.getElementById("it_time").value);
     var place = document.getElementById("it_place").value.trim();
@@ -1375,18 +1656,17 @@
       return;
     }
     var time = timeResult.value;
+    var itemData = { day: day, time: time, place: place, address: address, stores: stores, createdAt: new Date().toISOString() };
 
-    data.itineraryItems.push({
-      id: uid(),
-      tripId: trip.id,
-      day: day,
-      time: time,
-      place: place,
-      address: address,
-      stores: stores,
-      createdAt: new Date().toISOString()
-    });
-    saveData();
+    if (trip.roomId) {
+      db.collection("rooms").doc(trip.roomId).collection("itineraryItems").add(itemData)
+        .catch(function (err) { alert("新增失敗：" + err.message); });
+    } else {
+      itemData.id = uid();
+      itemData.tripId = trip.id;
+      data.itineraryItems.push(itemData);
+      saveData();
+    }
 
     document.getElementById("it_time").value = "";
     document.getElementById("it_place").value = "";
@@ -1491,6 +1771,7 @@
             '</span>' +
           '</div>' +
           (it.address ? '<span class="muted" style="font-size:12px;">📍 ' + escapeHtml(it.address) + '</span>' : '') +
+          ((it.stores && it.stores.length) ? '<span class="muted" style="font-size:12px;">🏬 ' + it.stores.map(escapeHtml).join('、') + '</span>' : '') +
           findRelatedReminders(it) +
         '</div>';
       }).join("");
@@ -1793,20 +2074,51 @@
 
     if (action === "goto-reminder") {
       switchTab("reminder");
+    } else if (action === "change-display-name") {
+      changeDisplayName();
+    } else if (action === "create-room") {
+      createRoom();
+    } else if (action === "copy-room-link") {
+      var linkToCopy = el.dataset.link;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(linkToCopy).then(function () { alert("已複製邀請連結"); }).catch(function () { prompt("複製失敗，請手動複製：", linkToCopy); });
+      } else {
+        prompt("請手動複製這個連結：", linkToCopy);
+      }
+    } else if (action === "manage-room-members") {
+      openMemberModal();
+    } else if (action === "close-member-modal") {
+      closeMemberModal();
+    } else if (action === "toggle-member-role") {
+      toggleMemberRole(el.dataset.uid, el.dataset.currentRole);
     } else if (action === "delete-daigou") {
       if (confirm("確定刪除這筆代購項目？")) {
         data.daigouItems = data.daigouItems.filter(function (it) { return it.id !== id; });
         saveData(); renderAll();
       }
     } else if (action === "delete-food") {
+      var deleteFoodTrip = getTrip(state.currentTripId);
+      if (deleteFoodTrip && !canEditRoomContent(deleteFoodTrip)) { alert("你目前是唯讀權限，無法刪除"); return; }
       if (confirm("確定刪除這筆餐飲紀錄？")) {
-        data.foodItems = data.foodItems.filter(function (it) { return it.id !== id; });
-        saveData(); renderAll();
+        if (deleteFoodTrip && deleteFoodTrip.roomId) {
+          db.collection("rooms").doc(deleteFoodTrip.roomId).collection("foodItems").doc(id).delete()
+            .catch(function (err) { alert("刪除失敗：" + err.message); });
+        } else {
+          data.foodItems = data.foodItems.filter(function (it) { return it.id !== id; });
+          saveData(); renderAll();
+        }
       }
     } else if (action === "delete-itinerary") {
+      var deleteItinTrip = getTrip(state.currentTripId);
+      if (deleteItinTrip && !canEditRoomContent(deleteItinTrip)) { alert("你目前是唯讀權限，無法刪除"); return; }
       if (confirm("確定刪除這筆行程項目？")) {
-        data.itineraryItems = data.itineraryItems.filter(function (it) { return it.id !== id; });
-        saveData(); renderAll();
+        if (deleteItinTrip && deleteItinTrip.roomId) {
+          db.collection("rooms").doc(deleteItinTrip.roomId).collection("itineraryItems").doc(id).delete()
+            .catch(function (err) { alert("刪除失敗：" + err.message); });
+        } else {
+          data.itineraryItems = data.itineraryItems.filter(function (it) { return it.id !== id; });
+          saveData(); renderAll();
+        }
       }
     } else if (action === "toggle-suggested-store") {
       toggleAddStoreSelection(el.dataset.name);
@@ -1821,6 +2133,8 @@
       state.collapsedDays[toggleDay] = !state.collapsedDays[toggleDay];
       renderItineraryContent();
     } else if (action === "edit-itinerary") {
+      var editItinTrip = getTrip(state.currentTripId);
+      if (editItinTrip && !canEditRoomContent(editItinTrip)) { alert("你目前是唯讀權限，無法編輯"); return; }
       var editingItin = data.itineraryItems.find(function (it) { return it.id === id; });
       state.itineraryStoreSelections[id] = editingItin ? (editingItin.stores || []).slice() : [];
       state.editingItineraryId = id;
@@ -1849,14 +2163,22 @@
           alert("時間格式請輸入 HH:MM，例如 14:00，或留空");
           return;
         }
-        editItinerary.day = newDay;
-        editItinerary.time = newTimeResult.value;
-        editItinerary.place = newPlace;
-        editItinerary.address = newAddress;
-        editItinerary.stores = newStores;
+        var updatedFields = { day: newDay, time: newTimeResult.value, place: newPlace, address: newAddress, stores: newStores };
+        var editItinTripForSave = getTrip(editItinerary.tripId);
         delete state.itineraryStoreSelections[id];
         state.editingItineraryId = null;
-        saveData(); renderAll();
+        if (editItinTripForSave && editItinTripForSave.roomId) {
+          db.collection("rooms").doc(editItinTripForSave.roomId).collection("itineraryItems").doc(id).update(updatedFields)
+            .catch(function (err) { alert("儲存失敗：" + err.message); });
+          renderAll();
+        } else {
+          editItinerary.day = updatedFields.day;
+          editItinerary.time = updatedFields.time;
+          editItinerary.place = updatedFields.place;
+          editItinerary.address = updatedFields.address;
+          editItinerary.stores = updatedFields.stores;
+          saveData(); renderAll();
+        }
       }
     } else if (action === "revert-purchased") {
       var revertItem = data.daigouItems.find(function (it) { return it.id === id; });
@@ -1904,6 +2226,8 @@
         saveData(); renderAll();
       }
     } else if (action === "edit-food") {
+      var editFoodTrip = getTrip(state.currentTripId);
+      if (editFoodTrip && !canEditRoomContent(editFoodTrip)) { alert("你目前是唯讀權限，無法編輯"); return; }
       state.editingFoodId = id;
       renderAll();
     } else if (action === "cancel-food-edit") {
@@ -1924,11 +2248,19 @@
           alert("價錢請輸入有效數字，或留空待輸入");
           return;
         }
-        editFoodItem.store = newStore;
-        editFoodItem.item = newFoodItemName;
-        editFoodItem.price = newFoodPrice;
+        var foodUpdatedFields = { store: newStore, item: newFoodItemName, price: newFoodPrice };
+        var editFoodTripForSave = getTrip(editFoodItem.tripId);
         state.editingFoodId = null;
-        saveData(); renderAll();
+        if (editFoodTripForSave && editFoodTripForSave.roomId) {
+          db.collection("rooms").doc(editFoodTripForSave.roomId).collection("foodItems").doc(id).update(foodUpdatedFields)
+            .catch(function (err) { alert("儲存失敗：" + err.message); });
+          renderAll();
+        } else {
+          editFoodItem.store = foodUpdatedFields.store;
+          editFoodItem.item = foodUpdatedFields.item;
+          editFoodItem.price = foodUpdatedFields.price;
+          saveData(); renderAll();
+        }
       }
     }
   });
@@ -2017,24 +2349,54 @@
     renderFoodTable();
     renderItineraryContent();
     renderOverview();
+    renderRoomStatus();
   }
 
-  document.getElementById("stickyTripBar").addEventListener("click", function () { state.tripBarInteracted = true; });
-  document.getElementById("stickyTripBar").addEventListener("change", function () { state.tripBarInteracted = true; });
-  document.getElementById("btnExpandTripBar").addEventListener("click", function () {
-    state.tripBarCollapsed = false;
-    state.tripBarInteracted = true;
-    renderTripBarVisibility();
-  });
-  setTimeout(function () {
-    if (!state.tripBarInteracted) {
+  var tripBarCollapseTimer = null;
+  function scheduleTripBarCollapse() {
+    if (tripBarCollapseTimer) clearTimeout(tripBarCollapseTimer);
+    tripBarCollapseTimer = setTimeout(function () {
       state.tripBarCollapsed = true;
       renderTripBarVisibility();
-    }
-  }, 30000);
+    }, 30000);
+  }
+
+  document.getElementById("stickyTripBar").addEventListener("click", function () {
+    scheduleTripBarCollapse();
+  });
+  document.getElementById("stickyTripBar").addEventListener("change", function () {
+    scheduleTripBarCollapse();
+  });
+  document.getElementById("btnExpandTripBar").addEventListener("click", function () {
+    state.tripBarCollapsed = false;
+    renderTripBarVisibility();
+    scheduleTripBarCollapse();
+  });
+  scheduleTripBarCollapse();
 
   renderAll();
   switchTab("overview");
+
+  // 啟動時重新訂閱所有已連結房間的行程（跨裝置/重新整理後持續同步）
+  var roomLinkedTrips = data.trips.filter(function (t) { return t.roomId; });
+  if (roomLinkedTrips.length) {
+    ensureAuth().then(function () {
+      roomLinkedTrips.forEach(function (t) { subscribeToRoom(t); });
+    }).catch(function (err) {
+      console.warn("重新連線共享房間失敗", err);
+    });
+  }
+
+  // 處理分享連結（?join=房間代碼）
+  (function checkJoinParam() {
+    var params = new URLSearchParams(location.search);
+    var joinId = params.get("join");
+    if (!joinId) return;
+    history.replaceState(null, "", location.pathname);
+    if (confirm("要加入這個共享房間嗎？加入後可以看到房間內的行程安排與餐廳美食（預設唯讀）。")) {
+      joinRoomFlow(joinId);
+    }
+  })();
 })();
 </script>
 </body>
