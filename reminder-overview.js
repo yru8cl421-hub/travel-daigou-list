@@ -64,7 +64,7 @@ function renderReminder() {
       var priced = it.price !== null && it.price !== undefined && !isNaN(it.price);
       return '<div class="reminder-item"><span class="name">' +
         '<input type="checkbox" data-action="toggle-purchased" data-id="' + it.id + '"' + (priced ? "" : " disabled title=\"請先輸入價格\"") + '>' +
-        '<span class="tag">' + (it.client ? "代購" : "自購") + '</span>' + escapeHtml(it.item) + (it.client ? ('　→ ' + escapeHtml(it.client)) : '') +
+        '<span class="tag">' + (it.client ? "代購" : "自購") + '</span>' + formatItemText(it.item) + (it.client ? ('　→ ' + escapeHtml(it.client)) : '') +
         '</span><span class="row" style="gap:6px;">' +
         (priced
           ? '<span class="muted">數量 ' + it.qty + '　' + amt(it) + '</span>'
@@ -212,7 +212,7 @@ function renderFixedExpenseList() {
             '<option value="LOCAL"' + (it.currency === "LOCAL" ? " selected" : "") + '>' + escapeHtml(trip.currency) + '</option>' +
           '</select></div>' +
           '<div class="field" style="max-width:130px;"><label>分攤方式</label><select id="editFxSplitMode_' + it.id + '">' +
-            '<option value="single"' + (it.splitMode === "single" ? " selected" : "") + '>1個人</option>' +
+            '<option value="single"' + (it.splitMode === "single" ? " selected" : "") + '>不分攤</option>' +
             '<option value="split"' + (it.splitMode === "split" ? " selected" : "") + '>平分</option>' +
           '</select></div>' +
           '<div class="field" style="max-width:90px;"><label>分攤人數</label><input type="number" min="1" step="1" id="editFxPeopleCount_' + it.id + '" value="' + (it.peopleCount || 2) + '"></div>' +
@@ -270,7 +270,10 @@ function renderOverview() {
   var foodSpend = tripFood.filter(hasPrice)
     .reduce(function (sum, it) { return sum + it.price * rate; }, 0);
   var tripFixedExpenses = data.fixedExpenses.filter(function (it) { return it.tripId === trip.id; });
-  var fixedSpend = tripFixedExpenses.reduce(function (sum, it) { return sum + fixedExpenseAmountTwd(it, trip); }, 0);
+  var fixedSpend = tripFixedExpenses.reduce(function (sum, it) {
+    var amtTwd = fixedExpenseAmountTwd(it, trip);
+    return sum + (it.splitMode === "split" ? amtTwd / it.peopleCount : amtTwd);
+  }, 0);
   var totalSpend = daigouReceivable + selfSpend + foodSpend + fixedSpend;
 
   spendingBox.innerHTML =

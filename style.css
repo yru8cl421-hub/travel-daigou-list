@@ -108,7 +108,7 @@ label {
   display: block;
   margin-bottom: 4px;
 }
-input, select {
+input, select, textarea {
   width: 100%;
   padding: 8px 10px;
   border: 1px solid var(--border);
@@ -116,7 +116,9 @@ input, select {
   background: var(--bg);
   color: var(--text);
   font-size: 14px;
+  font-family: inherit;
 }
+textarea { resize: vertical; }
 input[type="checkbox"] { width: auto; }
 button {
   cursor: pointer;
@@ -335,7 +337,7 @@ button.ghost { min-height: auto; }
   .card { padding: 12px; }
   .add-form .field { flex: 1 1 100%; }
   .add-form > button { flex: 1 1 100%; }
-  input, select, button { font-size: 16px; }
+  input, select, button, textarea { font-size: 16px; }
   .tab-btn { padding: 10px 12px; font-size: 13px; }
   .card .row > .field[style*="max-width"] { max-width: none !important; flex: 1 1 100%; }
   .trip-meta { gap: 14px; }

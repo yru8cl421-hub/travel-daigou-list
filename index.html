@@ -75,9 +75,10 @@
     <button class="tab-btn active" data-tab="overview">📊 總覽</button>
     <button class="tab-btn" data-tab="packing">🎒 攜帶清單</button>
     <button class="tab-btn" data-tab="itinerary">🗓️ 行程安排</button>
+    <button class="tab-btn" data-tab="venue">🏢 商場目錄</button>
     <button class="tab-btn" data-tab="daigou">🛍️ 購買清單</button>
     <button class="tab-btn" data-tab="reminder">🔔 購買提醒</button>
-    <button class="tab-btn" data-tab="food">🍽️ 餐廳&超商美食</button>
+    <button class="tab-btn" data-tab="food">🍽️ 美食</button>
   </div>
 
   <!-- 總覽 -->
@@ -107,7 +108,7 @@
         <div class="field" style="max-width:140px;">
           <label>分攤方式</label>
           <select id="fx_splitMode">
-            <option value="single">1個人</option>
+            <option value="single">不分攤</option>
             <option value="split">平分</option>
           </select>
         </div>
@@ -173,12 +174,44 @@
         <button id="btnAddItinerary">新增</button>
       </div>
       <div class="row" style="align-items:center; gap:10px; margin-top:4px;">
-        <span class="muted" style="font-size:13px;">這裡有的店家（選填）</span>
+        <span class="muted" style="font-size:13px;">這裡有的店家（選填，可個別加備註如樓層）</span>
         <button type="button" class="secondary" data-action="open-store-modal" data-target="add">🏬 選擇店家</button>
         <span id="it_storesSummary" class="muted" style="font-size:12px;">尚未選擇</span>
       </div>
     </div>
     <div id="itineraryContent"></div>
+  </div>
+
+  <!-- 商場目錄 -->
+  <div id="tab-venue" class="tab-panel" style="display:none;">
+    <div class="card">
+      <h2>新增商場目錄</h2>
+      <div class="muted" style="margin-bottom:10px;">記錄大型場所（例如百貨公司）裡面有哪些店家，不需要品項或價格</div>
+      <div class="add-form">
+        <div class="field grow">
+          <label>大項（例如：東急百貨札幌店）</label>
+          <input id="vd_venue" name="vd_venue" list="vd_venueList" autocomplete="on" placeholder="例如：東急百貨札幌店">
+          <datalist id="vd_venueList"></datalist>
+        </div>
+        <div class="field grow">
+          <label>大項地址（選填，用於快速導航）</label>
+          <input id="vd_address" placeholder="例如：Sapporo, Chuo Ward...">
+        </div>
+        <div class="field grow">
+          <label>店名</label>
+          <input id="vd_store" list="d_storeList" placeholder="例如：無印良品、ABC-MART">
+        </div>
+        <div class="field" style="max-width:100px;">
+          <label>樓層（選填）</label>
+          <input id="vd_floor" placeholder="例如：1F">
+        </div>
+        <button id="btnAddVenueStore">新增</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>目錄明細</h2>
+      <div id="venueDirectoryWrap"></div>
+    </div>
   </div>
 
   <!-- 購買清單（代購＋自購合併） -->
@@ -243,19 +276,26 @@
     </div>
   </div>
 
-  <!-- 餐廳＆超商美食 -->
+  <!-- 美食（含美食／購物類型） -->
   <div id="tab-food" class="tab-panel" style="display:none;">
     <div class="card">
       <h2>新增餐飲紀錄</h2>
       <div class="add-form">
         <div class="field grow">
           <label>店名</label>
-          <input id="fd_store" list="fd_storeList" placeholder="例如：一蘭拉麵、7-11">
+          <input id="fd_store" list="fd_storeList" placeholder="例如：一蘭拉麵、7-11、UNIQLO">
           <datalist id="fd_storeList"></datalist>
+        </div>
+        <div class="field" style="max-width:110px;">
+          <label>類型</label>
+          <select id="fd_type">
+            <option value="food">🍽️ 美食</option>
+            <option value="shopping">🛍️ 購物</option>
+          </select>
         </div>
         <div class="field grow">
           <label>品項</label>
-          <input id="fd_item" placeholder="例如：拉麵、飯糰">
+          <input id="fd_item" placeholder="例如：拉麵、飯糰、外套">
         </div>
         <div class="field">
           <label>價錢（原幣，選填）</label>
@@ -279,7 +319,7 @@
       <h2 style="margin:0;">選擇店家</h2>
       <button class="ghost" data-action="close-store-modal">✕</button>
     </div>
-    <div id="storeModalList" style="margin:12px 0; display:flex; flex-wrap:wrap; gap:10px 16px; max-height:50vh; overflow-y:auto;"></div>
+    <div id="storeModalList" style="margin:12px 0; display:flex; flex-direction:column; gap:8px; max-height:50vh; overflow-y:auto;"></div>
     <div class="row" style="justify-content:flex-end; gap:8px;">
       <button class="secondary" data-action="close-store-modal">取消</button>
       <button data-action="confirm-store-modal">確定</button>
@@ -300,7 +340,7 @@
   </div>
 </div>
 
-<!-- Firebase（共享房間功能：行程安排＋餐廳美食跨裝置同步用） -->
+<!-- Firebase（共享房間功能：行程安排＋美食消費跨裝置同步用） -->
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
@@ -320,6 +360,7 @@
 <script src="purchase.js"></script>
 <script src="food.js"></script>
 <script src="itinerary.js"></script>
+<script src="venue.js"></script>
 <script src="reminder-overview.js"></script>
 <script>
   renderAll();
@@ -341,7 +382,7 @@
     var joinId = params.get("join");
     if (!joinId) return;
     history.replaceState(null, "", location.pathname);
-    if (confirm("要加入這個共享房間嗎？加入後可以看到房間內的行程安排與餐廳美食（預設唯讀）。")) {
+    if (confirm("要加入這個共享房間嗎？加入後可以看到房間內的行程安排與美食消費（預設唯讀）。")) {
       joinRoomFlow(joinId);
     }
   })();

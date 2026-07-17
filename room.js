@@ -95,7 +95,20 @@ function subscribeToRoom(trip) {
   }, function (err) {
     console.warn("固定消費同步失敗", err);
   });
-  state.roomListeners[trip.id] = [unsubRoom, unsubItinerary, unsubFood, unsubFixedExpenses];
+  var unsubVenueStores = roomRef.collection("venueStores").onSnapshot(function (snap) {
+    data.venueStores = data.venueStores.filter(function (it) { return it.tripId !== trip.id; });
+    snap.forEach(function (doc) {
+      var d = doc.data();
+      d.id = doc.id;
+      d.tripId = trip.id;
+      data.venueStores.push(d);
+    });
+    saveData();
+    renderVenueDirectory();
+  }, function (err) {
+    console.warn("商場目錄同步失敗", err);
+  });
+  state.roomListeners[trip.id] = [unsubRoom, unsubItinerary, unsubFood, unsubFixedExpenses, unsubVenueStores];
 }
 
 function createRoom() {
@@ -129,6 +142,12 @@ function createRoom() {
     });
     data.fixedExpenses.filter(function (it) { return it.tripId === trip.id; }).forEach(function (it) {
       var ref = roomRef.collection("fixedExpenses").doc();
+      var copy = {};
+      Object.keys(it).forEach(function (k) { if (k !== "id" && k !== "tripId") copy[k] = it[k]; });
+      batch.set(ref, copy);
+    });
+    data.venueStores.filter(function (it) { return it.tripId === trip.id; }).forEach(function (it) {
+      var ref = roomRef.collection("venueStores").doc();
       var copy = {};
       Object.keys(it).forEach(function (k) { if (k !== "id" && k !== "tripId") copy[k] = it[k]; });
       batch.set(ref, copy);
@@ -216,7 +235,7 @@ function renderRoomStatus() {
   '</div>';
   if (!trip.roomId) {
     box.innerHTML = nameLine +
-      '<div class="muted" style="margin-bottom:8px;">尚未連結共享房間，行程安排與餐廳美食目前只存在你自己的裝置上。</div>' +
+      '<div class="muted" style="margin-bottom:8px;">尚未連結共享房間，行程安排與美食消費目前只存在你自己的裝置上。</div>' +
       '<button class="secondary" data-action="create-room">🔗 建立共享房間</button>';
     return;
   }

@@ -14,11 +14,14 @@ var state = {
   editingFoodId: null,
   editingItineraryId: null,
   editingFixedExpenseId: null,
+  editingVenueStoreId: null,
   storeModalTarget: null,
   itineraryStoreSelections: {},
+  storeNoteDrafts: {},
   showManualRate: false,
   tripBarCollapsed: false,
   collapsedDays: {},
+  collapsedVenues: {},
   roomListeners: {}
 };
 
@@ -36,6 +39,7 @@ function loadData() {
       parsed.foodItems = parsed.foodItems || [];
       parsed.itineraryItems = parsed.itineraryItems || [];
       parsed.fixedExpenses = parsed.fixedExpenses || [];
+      parsed.venueStores = parsed.venueStores || [];
       if (parsed.selfItems && parsed.selfItems.length) {
         parsed.daigouItems = parsed.daigouItems.concat(parsed.selfItems.map(function (it) {
           return {
@@ -52,7 +56,7 @@ function loadData() {
   } catch (e) {
     console.warn("讀取本機資料失敗，將重新初始化", e);
   }
-  return { trips: [], daigouItems: [], packingItems: [], foodItems: [], itineraryItems: [], fixedExpenses: [] };
+  return { trips: [], daigouItems: [], packingItems: [], foodItems: [], itineraryItems: [], fixedExpenses: [], venueStores: [] };
 }
 
 function normalizeStoreCasing(d) {
@@ -67,6 +71,7 @@ function normalizeStoreCasing(d) {
   }
   normalizeList(d.daigouItems);
   normalizeList(d.foodItems);
+  normalizeList(d.venueStores);
 }
 
 function getCanonicalStoreName(raw) {
@@ -74,6 +79,7 @@ function getCanonicalStoreName(raw) {
   if (!raw) return "";
   var allNames = data.daigouItems.map(function (it) { return it.store; })
     .concat(data.foodItems.map(function (it) { return it.store; }))
+    .concat(data.venueStores.map(function (it) { return it.store; }))
     .filter(function (s) { return s; });
   var match = allNames.find(function (s) { return s.toLowerCase() === raw.toLowerCase(); });
   return match || raw;
@@ -91,6 +97,12 @@ function escapeHtml(str) {
   return String(str == null ? "" : str).replace(/[&<>"']/g, function (c) {
     return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c];
   });
+}
+
+function formatItemText(text) {
+  var parts = String(text == null ? "" : text).split("・").map(function (p) { return p.trim(); }).filter(function (p) { return p; });
+  if (parts.length <= 1) return escapeHtml(text);
+  return parts.map(function (p) { return "・" + escapeHtml(p); }).join("<br>");
 }
 
 function fmtMoney(n) {
@@ -373,6 +385,7 @@ function deleteCurrentTrip() {
   data.foodItems = data.foodItems.filter(function (it) { return it.tripId !== trip.id; });
   data.itineraryItems = data.itineraryItems.filter(function (it) { return it.tripId !== trip.id; });
   data.fixedExpenses = data.fixedExpenses.filter(function (it) { return it.tripId !== trip.id; });
+  data.venueStores = data.venueStores.filter(function (it) { return it.tripId !== trip.id; });
   state.currentTripId = data.trips.length ? data.trips[0].id : null;
   saveData();
   renderAll();
@@ -511,6 +524,7 @@ function renderAll() {
   renderPackingList();
   renderFoodTable();
   renderItineraryContent();
+  renderVenueDirectory();
   renderFixedExpenseList();
   renderOverview();
   renderRoomStatus();

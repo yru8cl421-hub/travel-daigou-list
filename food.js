@@ -1,25 +1,26 @@
 "use strict";
 
-// ---------- 餐廳＆超商美食 ----------
+// ---------- 美食（含美食／購物類型） ----------
+function foodTypeLabel(type) {
+  return type === "shopping" ? "🛍️ 購物" : "🍽️ 美食";
+}
+
 function addFoodItem() {
   var trip = getTrip(state.currentTripId);
   if (!trip) { alert("請先建立行程"); return; }
   if (!canEditRoomContent(trip)) { alert("你目前是唯讀權限，無法新增"); return; }
   var store = getCanonicalStoreName(document.getElementById("fd_store").value);
   var item = document.getElementById("fd_item").value.trim();
+  var type = document.getElementById("fd_type").value;
   var priceRaw = document.getElementById("fd_price").value.trim();
   var price = priceRaw === "" ? null : parseFloat(priceRaw);
 
-  if (!item) {
-    alert("請填寫品項");
-    return;
-  }
   if (price !== null && (isNaN(price) || price < 0)) {
     alert("價錢請輸入有效數字，或留空待輸入");
     return;
   }
 
-  var foodData = { store: store, item: item, price: price, createdAt: new Date().toISOString() };
+  var foodData = { store: store, item: item, type: type, price: price, createdAt: new Date().toISOString() };
   if (trip.roomId) {
     db.collection("rooms").doc(trip.roomId).collection("foodItems").add(foodData)
       .catch(function (err) { alert("新增失敗：" + err.message); });
@@ -50,8 +51,7 @@ function renderFoodTable() {
 
   var items = data.foodItems.filter(function (it) { return it.tripId === trip.id; });
 
-  var storeNames = Array.from(new Set(items.map(function (it) { return it.store; }).filter(function (s) { return s; })))
-    .sort(function (a, b) { return a.localeCompare(b, "zh-Hant"); });
+  var storeNames = getAllStoreNamesForCurrentTrip();
   document.getElementById("fd_storeList").innerHTML =
     storeNames.map(function (s) { return '<option value="' + escapeHtml(s) + '">'; }).join("");
 
@@ -79,8 +79,12 @@ function renderFoodTable() {
     var rows = groupItems.map(function (it) {
       if (it.id === state.editingFoodId) {
         return '<div class="reminder-item">' +
-          '<div class="row" style="gap:10px; align-items:flex-end; width:100%;">' +
+          '<div class="row" style="gap:10px; align-items:flex-end; width:100%; flex-wrap:wrap;">' +
             '<div class="field grow"><label>店名</label><input id="editStore_' + it.id + '" value="' + escapeHtml(it.store || "") + '"></div>' +
+            '<div class="field" style="max-width:110px;"><label>類型</label><select id="editType_' + it.id + '">' +
+              '<option value="food"' + (it.type !== "shopping" ? " selected" : "") + '>🍽️ 美食</option>' +
+              '<option value="shopping"' + (it.type === "shopping" ? " selected" : "") + '>🛍️ 購物</option>' +
+            '</select></div>' +
             '<div class="field grow"><label>品項</label><input id="editItem_' + it.id + '" value="' + escapeHtml(it.item) + '"></div>' +
             '<div class="field" style="max-width:130px;"><label>價錢（' + escapeHtml(trip.currency) + '，選填）</label><input type="number" min="0" step="0.01" id="editPrice_' + it.id + '" value="' + (it.price !== null && it.price !== undefined ? it.price : "") + '" placeholder="待輸入"></div>' +
             '<button data-action="save-food-edit" data-id="' + it.id + '">儲存</button>' +
@@ -97,6 +101,7 @@ function renderFoodTable() {
         unpricedCount++;
       }
       return '<div class="reminder-item"><span class="name">' +
+        '<span class="tag">' + foodTypeLabel(it.type) + '</span> ' +
         escapeHtml(it.item) +
         (!hasPrice ? ' <span class="badge warn">待輸入價格</span>' : "") +
         '</span><span class="row" style="gap:10px;">' +
@@ -120,7 +125,7 @@ function renderFoodTable() {
     (unpricedCount ? ('　<span class="muted">（' + unpricedCount + ' 項尚未輸入價格，未計入總額）</span>') : "");
 }
 
-// ---------- 事件委派（餐廳＆超商美食） ----------
+// ---------- 事件委派（美食） ----------
 document.addEventListener("click", function (e) {
   var el = e.target.closest("[data-action]");
   if (!el) return;
@@ -130,7 +135,7 @@ document.addEventListener("click", function (e) {
   if (action === "delete-food") {
     var deleteFoodTrip = getTrip(state.currentTripId);
     if (deleteFoodTrip && !canEditRoomContent(deleteFoodTrip)) { alert("你目前是唯讀權限，無法刪除"); return; }
-    if (confirm("確定刪除這筆餐飲紀錄？")) {
+    if (confirm("確定刪除這筆消費紀錄？")) {
       if (deleteFoodTrip && deleteFoodTrip.roomId) {
         db.collection("rooms").doc(deleteFoodTrip.roomId).collection("foodItems").doc(id).delete()
           .catch(function (err) { alert("刪除失敗：" + err.message); });
@@ -152,17 +157,14 @@ document.addEventListener("click", function (e) {
     if (editFoodItem) {
       var newStore = getCanonicalStoreName(document.getElementById("editStore_" + id).value);
       var newFoodItemName = document.getElementById("editItem_" + id).value.trim();
+      var newFoodType = document.getElementById("editType_" + id).value;
       var newFoodPriceRaw = document.getElementById("editPrice_" + id).value.trim();
       var newFoodPrice = newFoodPriceRaw === "" ? null : parseFloat(newFoodPriceRaw);
-      if (!newFoodItemName) {
-        alert("請填寫品項");
-        return;
-      }
       if (newFoodPrice !== null && (isNaN(newFoodPrice) || newFoodPrice < 0)) {
         alert("價錢請輸入有效數字，或留空待輸入");
         return;
       }
-      var foodUpdatedFields = { store: newStore, item: newFoodItemName, price: newFoodPrice };
+      var foodUpdatedFields = { store: newStore, item: newFoodItemName, type: newFoodType, price: newFoodPrice };
       var editFoodTripForSave = getTrip(editFoodItem.tripId);
       state.editingFoodId = null;
       if (editFoodTripForSave && editFoodTripForSave.roomId) {
@@ -172,6 +174,7 @@ document.addEventListener("click", function (e) {
       } else {
         editFoodItem.store = foodUpdatedFields.store;
         editFoodItem.item = foodUpdatedFields.item;
+        editFoodItem.type = foodUpdatedFields.type;
         editFoodItem.price = foodUpdatedFields.price;
         saveData(); renderAll();
       }

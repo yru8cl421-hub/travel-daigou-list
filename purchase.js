@@ -92,6 +92,7 @@ function buildDaigouRow(it, trip, showTripColumn, isEditing) {
       html: '<tr><td colspan="100%">' +
         '<div class="row" style="gap:10px; align-items:flex-end;">' +
           '<div class="field grow"><label>店名</label><input id="editStore_' + it.id + '" value="' + escapeHtml(it.store || "") + '"></div>' +
+          '<div class="field grow"><label>商品</label><input id="editItem_' + it.id + '" value="' + escapeHtml(it.item || "") + '"></div>' +
           '<div class="field" style="max-width:150px;"><label>單價（' + escapeHtml(currency) + '，選填）</label><input type="number" min="0" step="0.01" id="editPrice_' + it.id + '" value="' + (hasPrice ? it.price : "") + '" placeholder="輸入單價"></div>' +
           '<div class="field" style="max-width:100px;"><label>數量</label><input type="number" min="1" step="1" id="editQty_' + it.id + '" value="' + it.qty + '"></div>' +
           '<div class="field" style="max-width:140px;"><label>代購費(台幣)</label><input type="number" min="0" step="1" id="editFee_' + it.id + '" value="' + it.fee + '"></div>' +
@@ -109,7 +110,7 @@ function buildDaigouRow(it, trip, showTripColumn, isEditing) {
       '<td>' + (it.client ? escapeHtml(it.client) : "自己") + '</td>' +
       (showTripColumn ? '<td>' + escapeHtml(trip ? trip.name : "—") + '</td>' : "") +
       '<td>' + (it.store ? escapeHtml(it.store) : '<span class="muted">—</span>') + '</td>' +
-      '<td>' + escapeHtml(it.item) +
+      '<td>' + formatItemText(it.item) +
         (!hasPrice ? ' <span class="badge warn">待輸入價格</span>' : "") +
       '</td>' +
       '<td class="num">' + it.qty + '</td>' +
@@ -130,13 +131,7 @@ function renderDaigouTable() {
   var summary = document.getElementById("daigouSummary");
   var clientFilter = document.getElementById("d_clientFilter").value;
 
-  var currentTripForStores = getTrip(state.currentTripId);
-  var storeNames = currentTripForStores
-    ? Array.from(new Set(
-        data.daigouItems.filter(function (it) { return it.tripId === currentTripForStores.id; })
-          .map(function (it) { return it.store; }).filter(function (s) { return s; })
-      )).sort(function (a, b) { return a.localeCompare(b, "zh-Hant"); })
-    : [];
+  var storeNames = getAllStoreNamesForCurrentTrip();
   document.getElementById("d_storeList").innerHTML =
     storeNames.map(function (s) { return '<option value="' + escapeHtml(s) + '">'; }).join("");
 
@@ -224,10 +219,15 @@ document.addEventListener("click", function (e) {
     var editItem = data.daigouItems.find(function (it) { return it.id === id; });
     if (editItem) {
       var newStore = getCanonicalStoreName(document.getElementById("editStore_" + id).value);
+      var newItemName = document.getElementById("editItem_" + id).value.trim();
       var priceRaw = document.getElementById("editPrice_" + id).value.trim();
       var newPrice = priceRaw === "" ? null : parseFloat(priceRaw);
       var newQty = parseInt(document.getElementById("editQty_" + id).value, 10);
       var newFee = parseFloat(document.getElementById("editFee_" + id).value);
+      if (!newItemName) {
+        alert("請填寫商品名稱");
+        return;
+      }
       if (newPrice !== null && (isNaN(newPrice) || newPrice < 0)) {
         alert("單價請輸入有效數字，或留空待輸入");
         return;
@@ -241,6 +241,7 @@ document.addEventListener("click", function (e) {
         return;
       }
       editItem.store = newStore;
+      editItem.item = newItemName;
       editItem.price = newPrice;
       editItem.qty = newQty;
       editItem.fee = newFee;
