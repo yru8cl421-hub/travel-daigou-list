@@ -22,6 +22,7 @@ var state = {
   tripBarCollapsed: false,
   collapsedDays: {},
   collapsedVenues: {},
+  expandedTimeSlots: {},
   roomListeners: {}
 };
 

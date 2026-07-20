@@ -237,6 +237,64 @@ function renderItineraryContent() {
   });
   dayOrder.sort(function (a, b) { return a - b; });
 
+  function buildEditForm(it) {
+    var editSelected = state.itineraryStoreSelections[it.id] || [];
+    var editStoreNotes = state.storeNoteDrafts[it.id] || {};
+    var editSelectedText = editSelected.length
+      ? editSelected.map(function (s) { return formatStoreWithNote(s, editStoreNotes); }).join("、")
+      : "尚未選擇";
+    return '<div class="reminder-item" style="flex-direction:column; align-items:stretch; gap:8px;">' +
+      '<div class="row" style="gap:10px; align-items:flex-end;">' +
+        '<div class="field" style="max-width:90px;"><label>第幾天</label><input type="number" min="1" step="1" id="editDay_' + it.id + '" value="' + it.day + '"></div>' +
+        '<div class="field" style="max-width:100px;"><label>時間（24H）</label><input id="editTime_' + it.id + '" value="' + escapeHtml(it.time || "") + '" placeholder="1400 或 14:00"></div>' +
+        '<div class="field grow"><label>地點/活動</label><input id="editPlace_' + it.id + '" value="' + escapeHtml(it.place) + '"></div>' +
+        '<div class="field grow"><label>地址（選填，用於快速導航）</label><input id="editAddress_' + it.id + '" value="' + escapeHtml(it.address || "") + '" placeholder="例如：停車場地址或詳細地址"></div>' +
+      '</div>' +
+      '<div class="row" style="align-items:center; gap:10px;">' +
+        '<span class="muted" style="font-size:13px;">這裡有的店家（可個別加備註如樓層）</span>' +
+        '<button type="button" class="secondary" data-action="open-store-modal" data-target="' + it.id + '">🏬 選擇店家</button>' +
+        '<span class="muted" style="font-size:12px;">' + escapeHtml(editSelectedText) + '</span>' +
+      '</div>' +
+      '<div class="row" style="gap:8px;">' +
+        '<button data-action="save-itinerary-edit" data-id="' + it.id + '">儲存</button>' +
+        '<button class="ghost" data-action="cancel-itinerary-edit" data-id="' + it.id + '">取消</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function buildDetailInner(it) {
+    var mapsQuery = encodeURIComponent(it.address || it.place);
+    return '<div class="row" style="justify-content:space-between; align-items:center;">' +
+        '<span class="name">' + (it.time ? ('<b>' + escapeHtml(it.time) + '</b>　') : '') + escapeHtml(it.place) +
+        '</span>' +
+        '<span class="row" style="gap:6px;">' +
+          '<a class="chip" href="https://www.google.com/maps/search/?api=1&query=' + mapsQuery + '" target="_blank" rel="noopener" style="text-decoration:none;">📍 導航</a>' +
+          '<button class="ghost" data-action="edit-itinerary" data-id="' + it.id + '">編輯</button>' +
+          '<button class="ghost del-btn" data-action="delete-itinerary" data-id="' + it.id + '">刪除</button>' +
+        '</span>' +
+      '</div>' +
+      (it.address ? '<span class="muted" style="font-size:12px;">📍 ' + escapeHtml(it.address) + '</span>' : '') +
+      ((it.stores && it.stores.length) ? '<span class="muted" style="font-size:12px;">🏬 ' + escapeHtml(it.stores.map(function (s) { return formatStoreWithNote(s, it.storeNotes); }).join('、')) + '</span>' : '') +
+      findRelatedReminders(it);
+  }
+
+  function buildDetailBlock(it) {
+    return '<div class="reminder-item" style="flex-direction:column; align-items:stretch; gap:4px;">' + buildDetailInner(it) + '</div>';
+  }
+
+  function buildDetailBox(it) {
+    return '<div class="card" style="flex:0 0 280px; display:flex; flex-direction:column; gap:4px; margin-bottom:0;">' + buildDetailInner(it) + '</div>';
+  }
+
+  function buildCollapsedRow(it, slotKey) {
+    return '<div class="reminder-item" style="cursor:pointer;" data-action="toggle-timeslot-expand" data-key="' + escapeHtml(slotKey) + '">' +
+      '<span class="name">' + (it.time ? ('<b>' + escapeHtml(it.time) + '</b>　') : '') + escapeHtml(it.place) +
+        (it.address ? '　<span class="muted" style="font-size:12px;">📍 ' + escapeHtml(it.address) + '</span>' : '') +
+      '</span>' +
+      '<span class="muted">▶</span>' +
+    '</div>';
+  }
+
   box.innerHTML = dayOrder.map(function (day) {
     var dayItems = groups[day].slice().sort(function (a, b) {
       if (!a.time && !b.time) return 0;
@@ -244,46 +302,37 @@ function renderItineraryContent() {
       if (!b.time) return -1;
       return a.time.localeCompare(b.time);
     });
-    var rows = dayItems.map(function (it) {
-      if (it.id === state.editingItineraryId) {
-        var editSelected = state.itineraryStoreSelections[it.id] || [];
-        var editStoreNotes = state.storeNoteDrafts[it.id] || {};
-        var editSelectedText = editSelected.length
-          ? editSelected.map(function (s) { return formatStoreWithNote(s, editStoreNotes); }).join("、")
-          : "尚未選擇";
-        return '<div class="reminder-item" style="flex-direction:column; align-items:stretch; gap:8px;">' +
-          '<div class="row" style="gap:10px; align-items:flex-end;">' +
-            '<div class="field" style="max-width:90px;"><label>第幾天</label><input type="number" min="1" step="1" id="editDay_' + it.id + '" value="' + it.day + '"></div>' +
-            '<div class="field" style="max-width:100px;"><label>時間（24H）</label><input id="editTime_' + it.id + '" value="' + escapeHtml(it.time || "") + '" placeholder="1400 或 14:00"></div>' +
-            '<div class="field grow"><label>地點/活動</label><input id="editPlace_' + it.id + '" value="' + escapeHtml(it.place) + '"></div>' +
-            '<div class="field grow"><label>地址（選填，用於快速導航）</label><input id="editAddress_' + it.id + '" value="' + escapeHtml(it.address || "") + '" placeholder="例如：停車場地址或詳細地址"></div>' +
-          '</div>' +
-          '<div class="row" style="align-items:center; gap:10px;">' +
-            '<span class="muted" style="font-size:13px;">這裡有的店家（可個別加備註如樓層）</span>' +
-            '<button type="button" class="secondary" data-action="open-store-modal" data-target="' + it.id + '">🏬 選擇店家</button>' +
-            '<span class="muted" style="font-size:12px;">' + escapeHtml(editSelectedText) + '</span>' +
-          '</div>' +
-          '<div class="row" style="gap:8px;">' +
-            '<button data-action="save-itinerary-edit" data-id="' + it.id + '">儲存</button>' +
-            '<button class="ghost" data-action="cancel-itinerary-edit" data-id="' + it.id + '">取消</button>' +
-          '</div>' +
-        '</div>';
+
+    var slotOrder = [];
+    var slots = {};
+    dayItems.forEach(function (it) {
+      var slotKey = it.time ? (day + "_" + it.time) : (day + "_solo_" + it.id);
+      if (!slots[slotKey]) { slots[slotKey] = []; slotOrder.push(slotKey); }
+      slots[slotKey].push(it);
+    });
+
+    var rows = slotOrder.map(function (slotKey) {
+      var slotItems = slots[slotKey];
+      var isEditingInSlot = slotItems.some(function (it) { return it.id === state.editingItineraryId; });
+
+      if (isEditingInSlot) {
+        return slotItems.map(function (it) {
+          return it.id === state.editingItineraryId ? buildEditForm(it) : buildDetailBlock(it);
+        }).join("");
       }
-      var mapsQuery = encodeURIComponent(it.address || it.place);
-      return '<div class="reminder-item" style="flex-direction:column; align-items:stretch; gap:4px;">' +
-        '<div class="row" style="justify-content:space-between; align-items:center;">' +
-          '<span class="name">' + (it.time ? ('<b>' + escapeHtml(it.time) + '</b>　') : '') + escapeHtml(it.place) +
-          '</span>' +
-          '<span class="row" style="gap:6px;">' +
-            '<a class="chip" href="https://www.google.com/maps/search/?api=1&query=' + mapsQuery + '" target="_blank" rel="noopener" style="text-decoration:none;">📍 導航</a>' +
-            '<button class="ghost" data-action="edit-itinerary" data-id="' + it.id + '">編輯</button>' +
-            '<button class="ghost del-btn" data-action="delete-itinerary" data-id="' + it.id + '">刪除</button>' +
-          '</span>' +
-        '</div>' +
-        (it.address ? '<span class="muted" style="font-size:12px;">📍 ' + escapeHtml(it.address) + '</span>' : '') +
-        ((it.stores && it.stores.length) ? '<span class="muted" style="font-size:12px;">🏬 ' + escapeHtml(it.stores.map(function (s) { return formatStoreWithNote(s, it.storeNotes); }).join('、')) + '</span>' : '') +
-        findRelatedReminders(it) +
+
+      var isExpanded = !!state.expandedTimeSlots[slotKey];
+      if (!isExpanded) {
+        return slotItems.map(function (it) { return buildCollapsedRow(it, slotKey); }).join("");
+      }
+
+      var collapseHeader = '<div class="row" style="justify-content:flex-end; margin-bottom:6px;">' +
+          '<button class="ghost" data-action="toggle-timeslot-expand" data-key="' + escapeHtml(slotKey) + '">▲ 收合</button>' +
+        '</div>';
+      var boxesHtml = '<div style="display:flex; gap:10px; overflow-x:auto; padding-bottom:4px;">' +
+        slotItems.map(function (it) { return buildDetailBox(it); }).join("") +
       '</div>';
+      return collapseHeader + boxesHtml;
     }).join("");
     var dateLabel = formatDayDate(trip.departureDate, day);
     var isCollapsed = !!state.collapsedDays[day];
@@ -313,6 +362,10 @@ document.addEventListener("click", function (e) {
   } else if (action === "toggle-day-collapse") {
     var toggleDay = el.dataset.day;
     state.collapsedDays[toggleDay] = !state.collapsedDays[toggleDay];
+    renderItineraryContent();
+  } else if (action === "toggle-timeslot-expand") {
+    var toggleSlotKey = el.dataset.key;
+    state.expandedTimeSlots[toggleSlotKey] = !state.expandedTimeSlots[toggleSlotKey];
     renderItineraryContent();
   } else if (action === "edit-itinerary") {
     var editItinTrip = getTrip(state.currentTripId);
