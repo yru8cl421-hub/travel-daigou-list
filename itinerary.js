@@ -365,7 +365,12 @@ document.addEventListener("click", function (e) {
     renderItineraryContent();
   } else if (action === "toggle-timeslot-expand") {
     var toggleSlotKey = el.dataset.key;
-    state.expandedTimeSlots[toggleSlotKey] = !state.expandedTimeSlots[toggleSlotKey];
+    var willExpand = !state.expandedTimeSlots[toggleSlotKey];
+    var dayPrefix = toggleSlotKey.split("_")[0] + "_";
+    Object.keys(state.expandedTimeSlots).forEach(function (k) {
+      if (k.indexOf(dayPrefix) === 0) delete state.expandedTimeSlots[k];
+    });
+    if (willExpand) state.expandedTimeSlots[toggleSlotKey] = true;
     renderItineraryContent();
   } else if (action === "edit-itinerary") {
     var editItinTrip = getTrip(state.currentTripId);
