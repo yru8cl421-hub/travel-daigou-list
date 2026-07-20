@@ -5,6 +5,60 @@ function foodTypeLabel(type) {
   return type === "shopping" ? "🛍️ 購物" : "🍽️ 美食";
 }
 
+// ---------- 快速點餐小幫手 ----------
+var QUICK_ORDER_OPTIONS = {
+  sweetness: ["正常糖", "少糖", "半糖", "微糖", "無糖"],
+  ice: ["正常冰", "少冰", "微冰", "去冰", "溫", "熱"],
+  size: ["大杯", "中杯", "小杯"]
+};
+var quickOrderSelections = { sweetness: "", ice: "", size: "" };
+var CURRENCY_TO_LANG = {
+  JPY: "ja", KRW: "ko", THB: "th", CNY: "zh-CN", HKD: "zh-TW",
+  VND: "vi", MYR: "ms", PHP: "tl", IDR: "id",
+  USD: "en", EUR: "en", GBP: "en", AUD: "en", SGD: "en", NZD: "en", CAD: "en"
+};
+
+function getTripTranslateLang() {
+  var trip = getTrip(state.currentTripId);
+  if (!trip) return "en";
+  return CURRENCY_TO_LANG[trip.currency] || "en";
+}
+
+function renderQuickOrderChips() {
+  ["sweetness", "ice", "size"].forEach(function (group) {
+    var box = document.getElementById(
+      group === "sweetness" ? "fd_quickSweetness" : group === "ice" ? "fd_quickIce" : "fd_quickSize"
+    );
+    box.innerHTML = QUICK_ORDER_OPTIONS[group].map(function (opt) {
+      var active = quickOrderSelections[group] === opt;
+      return '<button type="button" class="chip' + (active ? " active" : "") + '" data-action="toggle-quick-order-option" data-group="' + group + '" data-value="' + escapeHtml(opt) + '">' + escapeHtml(opt) + '</button>';
+    }).join("");
+  });
+}
+
+function buildQuickOrderText() {
+  var name = document.getElementById("fd_quickName").value.trim();
+  var parts = [quickOrderSelections.sweetness, quickOrderSelections.ice, quickOrderSelections.size].filter(function (p) { return p; });
+  if (!name) return "";
+  return name + (parts.length ? "（" + parts.join("／") + "）" : "");
+}
+
+function updateQuickOrderPreview() {
+  var text = buildQuickOrderText();
+  document.getElementById("fd_quickPreview").textContent = text || "尚未輸入品項名稱";
+  var rawText = text || document.getElementById("fd_quickName").value.trim();
+  var lang = getTripTranslateLang();
+  document.getElementById("fd_quickTranslate").href =
+    "https://translate.google.com/?sl=zh-TW&tl=" + lang + "&text=" + encodeURIComponent(rawText) + "&op=translate";
+}
+
+function fillQuickOrderIntoItemField() {
+  var text = buildQuickOrderText();
+  if (!text) { alert("請先輸入品項名稱"); return; }
+  document.getElementById("fd_item").value = text;
+  switchTab("food");
+}
+
 function addFoodItem() {
   var trip = getTrip(state.currentTripId);
   if (!trip) { alert("請先建立行程"); return; }
@@ -42,10 +96,12 @@ function renderFoodTable() {
   var wrap = document.getElementById("foodTableWrap");
   var summary = document.getElementById("foodSummary");
   var trip = getTrip(state.currentTripId);
+  updateQuickOrderPreview();
   if (!trip) {
     wrap.innerHTML = '<div class="empty">請先建立行程</div>';
     summary.textContent = "";
     document.getElementById("fd_storeList").innerHTML = "";
+    document.getElementById("fd_quickNameList").innerHTML = "";
     return;
   }
 
@@ -54,6 +110,11 @@ function renderFoodTable() {
   var storeNames = getAllStoreNamesForCurrentTrip();
   document.getElementById("fd_storeList").innerHTML =
     storeNames.map(function (s) { return '<option value="' + escapeHtml(s) + '">'; }).join("");
+
+  var itemNames = Array.from(new Set(items.map(function (it) { return it.item; }).filter(function (n) { return n; })))
+    .sort(function (a, b) { return a.localeCompare(b, "zh-Hant"); });
+  document.getElementById("fd_quickNameList").innerHTML =
+    itemNames.map(function (n) { return '<option value="' + escapeHtml(n) + '">'; }).join("");
 
   if (!items.length) {
     wrap.innerHTML = '<div class="empty">尚未新增餐飲紀錄</div>';
@@ -152,6 +213,12 @@ document.addEventListener("click", function (e) {
   } else if (action === "cancel-food-edit") {
     state.editingFoodId = null;
     renderAll();
+  } else if (action === "toggle-quick-order-option") {
+    var group = el.dataset.group;
+    var value = el.dataset.value;
+    quickOrderSelections[group] = quickOrderSelections[group] === value ? "" : value;
+    renderQuickOrderChips();
+    updateQuickOrderPreview();
   } else if (action === "save-food-edit") {
     var editFoodItem = data.foodItems.find(function (it) { return it.id === id; });
     if (editFoodItem) {
@@ -183,3 +250,7 @@ document.addEventListener("click", function (e) {
 });
 
 document.getElementById("btnAddFood").addEventListener("click", addFoodItem);
+document.getElementById("fd_quickName").addEventListener("input", updateQuickOrderPreview);
+document.getElementById("btnFillQuickOrder").addEventListener("click", fillQuickOrderIntoItemField);
+renderQuickOrderChips();
+updateQuickOrderPreview();

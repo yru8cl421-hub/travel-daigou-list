@@ -79,6 +79,7 @@
     <button class="tab-btn" data-tab="daigou">🛍️ 購買清單</button>
     <button class="tab-btn" data-tab="reminder">🔔 購買提醒</button>
     <button class="tab-btn" data-tab="food">🍽️ 美食</button>
+    <button class="tab-btn" data-tab="quickorder">🥤 快速點餐</button>
   </div>
 
   <!-- 總覽 -->
@@ -175,7 +176,7 @@
       </div>
       <div class="row" style="align-items:center; gap:10px; margin-top:4px;">
         <span class="muted" style="font-size:13px;">這裡有的店家（選填，可個別加備註如樓層）</span>
-        <button type="button" class="secondary" data-action="open-store-modal" data-target="add">🏬 選擇店家</button>
+        <button type="button" class="secondary" data-action="open-store-modal" data-target="add">🏪 選擇店家</button>
         <span id="it_storesSummary" class="muted" style="font-size:12px;">尚未選擇</span>
       </div>
     </div>
@@ -308,6 +309,40 @@
       <h2>餐飲明細</h2>
       <div id="foodTableWrap"></div>
       <div id="foodSummary" class="status-line"></div>
+    </div>
+  </div>
+
+  <!-- 快速點餐 -->
+  <div id="tab-quickorder" class="tab-panel" style="display:none;">
+    <div class="card">
+      <h2>快速點餐小幫手</h2>
+      <div class="muted" style="margin-bottom:10px;">組合品名＋甜度／冰塊／尺寸，可直接翻譯，完成後填入「美食」分頁的品項欄位</div>
+      <div class="field grow">
+        <label>品項名稱</label>
+        <input id="fd_quickName" list="fd_quickNameList" placeholder="例如：焙茶經典茶拿鐵">
+        <datalist id="fd_quickNameList"></datalist>
+      </div>
+      <div class="row" style="margin-top:8px; gap:16px; flex-wrap:wrap;">
+        <div>
+          <div class="muted" style="font-size:12px; margin-bottom:4px;">甜度</div>
+          <div class="row" id="fd_quickSweetness" style="gap:6px; flex-wrap:wrap;"></div>
+        </div>
+        <div>
+          <div class="muted" style="font-size:12px; margin-bottom:4px;">冰塊</div>
+          <div class="row" id="fd_quickIce" style="gap:6px; flex-wrap:wrap;"></div>
+        </div>
+        <div>
+          <div class="muted" style="font-size:12px; margin-bottom:4px;">尺寸</div>
+          <div class="row" id="fd_quickSize" style="gap:6px; flex-wrap:wrap;"></div>
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px; gap:8px; align-items:center; flex-wrap:wrap;">
+        <span id="fd_quickPreview" class="muted">尚未輸入品項名稱</span>
+      </div>
+      <div class="row" style="margin-top:8px; gap:8px;">
+        <a id="fd_quickTranslate" class="chip" href="https://translate.google.com/" target="_blank" rel="noopener" style="text-decoration:none;">🌐 翻譯</a>
+        <button class="secondary" id="btnFillQuickOrder">↓ 填入「美食」品項欄位</button>
+      </div>
     </div>
   </div>
 

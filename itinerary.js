@@ -69,7 +69,7 @@ function openStoreModal(target) {
       allVenueNames.map(function (v) { return buildStoreModalRow(v, current, currentNotes); }).join("");
   }
   if (allStoreNames.length) {
-    sections += '<div class="muted" style="font-size:12px; font-weight:600; margin:10px 0 4px;">🏬 個別店家</div>' +
+    sections += '<div class="muted" style="font-size:12px; font-weight:600; margin:10px 0 4px;">🏪 個別店家</div>' +
       allStoreNames.map(function (s) { return buildStoreModalRow(s, current, currentNotes); }).join("");
   }
   document.getElementById("storeModalList").innerHTML = sections ||
@@ -205,21 +205,21 @@ function renderItineraryContent() {
       if (childStores.length) {
         var childBlocks = childStores.map(function (child) {
           var childLines = buildStoreItemLines(child.store);
-          return '<div style="margin-top:4px;">🏬 <b>' + escapeHtml(child.store) + '</b>' +
-            (child.floor ? ' <span class="muted">（' + escapeHtml(child.floor) + '）</span>' : '') +
+          return '<div style="margin-top:4px;">🏪 ' + escapeHtml(child.store) +
+            (child.floor ? ' <span class="muted" style="font-size:12px;">（' + escapeHtml(child.floor) + '）</span>' : '') +
             (childLines.length
               ? childLines.map(function (line) { return '<div style="padding-left:20px; font-size:13px;">' + line + '</div>'; }).join("")
               : '<div class="muted" style="padding-left:20px; font-size:12px;">（尚無登記品項）</div>') +
           '</div>';
         }).join("");
-        return '<div style="margin-bottom:6px;">🏢 <b>' + escapeHtml(storeName) + '</b>' +
+        return '<div style="margin-bottom:6px;">🏢 <b style="color:var(--primary);">' + escapeHtml(storeName) + '</b>' +
           (note ? ' <span class="muted">（' + escapeHtml(note) + '）</span>' : '') +
-          '<div style="padding-left:12px;">' + childBlocks + '</div>' +
+          '<div style="padding-left:12px; border-left:2px solid var(--border); margin-top:4px;">' + childBlocks + '</div>' +
         '</div>';
       }
       var lines = buildStoreItemLines(storeName);
       if (!lines.length) return "";
-      return '<div style="margin-bottom:6px;">🏬 <b>' + escapeHtml(storeName) + '</b>' +
+      return '<div style="margin-bottom:6px;">🏪 <b>' + escapeHtml(storeName) + '</b>' +
         (note ? ' <span class="muted">（' + escapeHtml(note) + '）</span>' : '') +
         lines.map(function (line) { return '<div style="padding-left:20px; font-size:13px;">' + line + '</div>'; }).join("") +
       '</div>';
@@ -252,7 +252,7 @@ function renderItineraryContent() {
       '</div>' +
       '<div class="row" style="align-items:center; gap:10px;">' +
         '<span class="muted" style="font-size:13px;">這裡有的店家（可個別加備註如樓層）</span>' +
-        '<button type="button" class="secondary" data-action="open-store-modal" data-target="' + it.id + '">🏬 選擇店家</button>' +
+        '<button type="button" class="secondary" data-action="open-store-modal" data-target="' + it.id + '">🏪 選擇店家</button>' +
         '<span class="muted" style="font-size:12px;">' + escapeHtml(editSelectedText) + '</span>' +
       '</div>' +
       '<div class="row" style="gap:8px;">' +
@@ -274,7 +274,7 @@ function renderItineraryContent() {
         '</span>' +
       '</div>' +
       (it.address ? '<span class="muted" style="font-size:12px;">📍 ' + escapeHtml(it.address) + '</span>' : '') +
-      ((it.stores && it.stores.length) ? '<span class="muted" style="font-size:12px;">🏬 ' + escapeHtml(it.stores.map(function (s) { return formatStoreWithNote(s, it.storeNotes); }).join('、')) + '</span>' : '') +
+      ((it.stores && it.stores.length) ? '<span class="muted" style="font-size:12px;">🏪 ' + escapeHtml(it.stores.map(function (s) { return formatStoreWithNote(s, it.storeNotes); }).join('、')) + '</span>' : '') +
       findRelatedReminders(it);
   }
 

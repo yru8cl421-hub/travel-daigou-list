@@ -106,6 +106,10 @@ function formatItemText(text) {
   return parts.map(function (p) { return "・" + escapeHtml(p); }).join("<br>");
 }
 
+function translateUrl(text) {
+  return "https://translate.google.com/?sl=auto&tl=zh-TW&text=" + encodeURIComponent(text || "") + "&op=translate";
+}
+
 function fmtMoney(n) {
   if (isNaN(n)) return "0";
   return Math.round(n).toLocaleString("zh-TW");

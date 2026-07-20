@@ -112,6 +112,7 @@ function buildDaigouRow(it, trip, showTripColumn, isEditing) {
       '<td>' + (it.store ? escapeHtml(it.store) : '<span class="muted">—</span>') + '</td>' +
       '<td>' + formatItemText(it.item) +
         (!hasPrice ? ' <span class="badge warn">待輸入價格</span>' : "") +
+        ' <a class="chip" href="' + translateUrl(it.item) + '" target="_blank" rel="noopener" style="text-decoration:none; font-size:11px;">🌐 翻譯</a>' +
       '</td>' +
       '<td class="num">' + it.qty + '</td>' +
       '<td class="num">' + (hasPrice ? ('NT$ ' + fmtMoney(subtotalTwd)) : '—') + '</td>' +

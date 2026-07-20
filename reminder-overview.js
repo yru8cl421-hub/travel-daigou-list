@@ -65,6 +65,7 @@ function renderReminder() {
       return '<div class="reminder-item"><span class="name">' +
         '<input type="checkbox" data-action="toggle-purchased" data-id="' + it.id + '"' + (priced ? "" : " disabled title=\"請先輸入價格\"") + '>' +
         '<span class="tag">' + (it.client ? "代購" : "自購") + '</span>' + formatItemText(it.item) + (it.client ? ('　→ ' + escapeHtml(it.client)) : '') +
+        ' <a class="chip" href="' + translateUrl(it.item) + '" target="_blank" rel="noopener" style="text-decoration:none; font-size:11px;">🌐 翻譯</a>' +
         '</span><span class="row" style="gap:6px;">' +
         (priced
           ? '<span class="muted">數量 ' + it.qty + '　' + amt(it) + '</span>'
@@ -111,7 +112,7 @@ function renderReminder() {
       if (!list.length) return "";
       var grouped = groupByStore(list);
       var storeHtml = grouped.order.map(function (storeName) {
-        return '<div style="margin:8px 0 4px; font-weight:600;">🏬 ' + (storeName ? escapeHtml(storeName) : "未填店家") + '</div>' +
+        return '<div style="margin:8px 0 4px; font-weight:600;">🏪 ' + (storeName ? escapeHtml(storeName) : "未填店家") + '</div>' +
           grouped.buckets[storeName].map(buildRowFn).join("");
       }).join("");
       return '<div class="reminder-section">' +
